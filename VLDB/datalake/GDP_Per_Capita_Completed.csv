@@ -1,0 +1,31 @@
+country,gdp (in trillions USD),region,official_language,internet_penetration,currency,population_millions,gdp_per_capita_usd
+United States,27.0,North America,English,41.99,USD,332.0,81325.30120481928
+China,17.7,Asia,Mandarin,92.74,CNY,1411.0,12544.294826364281
+India,3.7,Asia,"Hindi, English",55.01,INR,1393.0,2656.137832017229
+Germany,4.5,Europe,German,78.43,EUR,83.0,54216.867469879515
+France,3.1,Europe,French,58.08,EUR,67.0,46268.65671641791
+Brazil,2.1,South America,Portuguese,70.16,BRL,213.0,9859.154929577464
+Japan,4.2,Asia,Japanese,71.71,JPY,125.0,33600.0
+Canada,2.1,North America,"English, French",50.72,CAD,38.0,55263.15789473684
+Australia,1.7,Oceania,English,96.24,AUD,26.0,65384.61538461538
+United Kingdom,3.2,Europe,English,84.96,GBP,68.0,47058.82352941176
+Russia,2.2,Europe/Asia,Russian,94.49,RUB,146.0,15068.493150684932
+Mexico,1.8,North America,Spanish,91.9,MXN,126.0,14285.714285714286
+South Korea,1.7,Asia,Korean,74.68,KRW,52.0,32692.30769230769
+South Africa,0.4,Africa,"Zulu, Xhosa, Afrikaans, English, etc.",93.47,ZAR,60.0,6666.666666666667
+Saudi Arabia,1.1,Asia,Arabic,45.13,SAR,35.0,31428.571428571428
+Italy,2.3,Europe,Italian,51.37,EUR,60.0,38333.333333333336
+Spain,1.6,Europe,Spanish,42.62,EUR,47.0,34042.55319148936
+Netherlands,1.1,Europe,Dutch,58.87,EUR,,
+Sweden,0.7,Europe,Swedish,62.54,SEK,,
+Norway,0.6,Europe,Norwegian,55.74,NOK,,
+Argentina,0.6,South America,Spanish,88.07,ARS,,
+Turkey,1.1,Asia/Europe,Turkish,60.69,TRY,85.0,12941.176470588236
+Indonesia,1.4,Asia,Indonesian,56.29,IDR,276.0,5072.463768115942
+Egypt,0.4,Africa,Arabic,71.48,EGP,,
+Nigeria,0.5,Africa,English,48.17,NGN,223.0,2242.152466367713
+Vietnam,0.4,Asia,Vietnamese,86.53,VND,,
+Poland,0.9,Europe,Polish,44.32,PLN,,
+Thailand,0.6,Asia,Thai,97.24,THB,,
+Pakistan,0.3,Asia,"Urdu, English",84.79,PKR,,
+Malaysia,0.5,Asia,Malay,51.53,MYR,,

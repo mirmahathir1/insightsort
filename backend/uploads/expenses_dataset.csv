@@ -1,0 +1,13 @@
+ID,Category,Amount ($),Date,Payment Method
+1,Groceries,150,2024-01-01,Credit Card
+2,Rent,1200,2024-01-01,Bank Transfer
+3,Utilities,200,2024-01-02,Cash
+4,Transport,50,2024-01-02,Credit Card
+5,Entertainment,80,2024-01-03,Credit Card
+6,Healthcare,100,2024-01-04,Insurance
+7,Groceries,140,2024-02-01,Cash
+8,Rent,1250,2024-02-01,Bank Transfer
+9,Utilities,210,2024-02-02,Cash
+10,Transport,55,2024-02-02,Credit Card
+11,Entertainment,75,2024-02-03,Credit Card
+12,Healthcare,110,2024-02-04,Insurance

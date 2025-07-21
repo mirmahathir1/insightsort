@@ -1,0 +1,296 @@
+:root {
+    --primary-color: #1E1E2E; /* Darker blue-gray for a sleeker look */
+    --secondary-color: #282A36; /* A deep neutral for better contrast */
+    --accent-color: #8D72E1; /* Vibrant purple-blue for accents */
+    --background-color: #F8FAFC; /* Softer, modern light gray */
+    --button-hover-color: #6A5ACD; /* Soft indigo for hover */
+    --text-color: #333333; /* Darker gray for better readability */
+    --input-bg: #FFFFFF; /* Clean white background for inputs */
+    --border-radius: 16px; /* More rounded edges for a modern feel */
+    --box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12); /* Stronger depth */
+    --font-family: 'Inter', sans-serif; /* A clean, modern sans-serif font */
+    --transition-speed: 0.25s;
+    --gradient-primary: linear-gradient(135deg, #8D72E1, #6A5ACD); /* Smoother gradient */
+  }
+  
+  
+  body {
+    margin: 0;
+    font-family: var(--font-family);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    min-height: 100vh;
+    padding: 20px;
+  }
+  
+  h1, h2 {
+    color: var(--primary-color);
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  h1 {
+    font-size: 2.5rem;
+    font-weight: 600; /* Slightly bolder for emphasis */
+  }
+  
+  h2 {
+    font-size: 2rem;
+    font-weight: 500;
+  }
+  
+  p {
+    text-align: center;
+    font-size: 1.1rem;
+    margin-top: 20px;
+    color: var(--text-color);
+  }
+  
+  .container {
+    max-width: 1200px;
+    width: 100%;
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    margin: 0 auto;
+  }
+  
+  button {
+    background: var(--gradient-primary); /* Gradient background */
+    color: white;
+    padding: 12px 24px;
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+    margin-top: 10px;
+  }
+  
+  button:hover {
+    transform: translateY(-2px); /* Slight lift on hover */
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  input[type="file"], input[type="text"] {
+    padding: 12px;
+    font-size: 1rem;
+    width: 100%;
+    max-width: 400px;
+    background-color: var(--input-bg);
+    border: 1px solid var(--primary-color);
+    border-radius: var(--border-radius);
+    margin-bottom: 15px;
+    transition: border-color var(--transition-speed);
+  }
+  
+  input[type="file"]:focus, input[type="text"]:focus {
+    border-color: var(--accent-color); /* Highlight focus state */
+    outline: none;
+  }
+  
+  .drop-zone {
+    max-width: 500px;
+    background-color: var(--input-bg);
+    border: 2px dashed var(--primary-color);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    text-align: center;
+    margin: 20px auto;
+    transition: background-color var(--transition-speed), border-color var(--transition-speed);
+  }
+  
+  .drop-zone:hover {
+    background-color: #dce6f0;
+    border-color: var(--accent-color); /* Highlight on hover */
+    cursor: pointer;
+  }
+  
+  .scroll-buttons {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+  }
+  
+  .scroll-buttons button {
+    margin: 0 10px;
+  }
+  
+  .DataGrid-root {
+    width: 100%; 
+    min-width: 600px; 
+    border: none;
+  }
+  
+  .table-div .MuiDataGrid-root {
+    border: none;
+    font-size: 1rem;
+  }
+  
+  .table-div .MuiDataGrid-columnHeaderTitle {
+    font-weight: bold;
+    color: var(--primary-color);
+  }
+  
+  .table-div .MuiDataGrid-cell {
+    color: var(--secondary-color);
+    font-size: 1rem;
+  }
+  
+  .loader {
+    display: flex;
+    justify-content: center;
+    margin-top: 2rem;
+  }
+  
+  .dataset-card {
+    background-color: white;
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    margin: 20px 0;
+  }
+  
+  @media (min-width: 768px) {
+    .container {
+        max-width: 1000px;
+    }
+  
+    .drop-zone {
+        width: 40%;
+    }
+  
+    h1 {
+        font-size: 3rem;
+    }
+  
+    h2 {
+        font-size: 2.5rem;
+    }
+  
+    button {
+        font-size: 1.2rem;
+    }
+  
+    p {
+        font-size: 1.2rem;
+    }
+  }
+  
+  html, body {
+    height: 100%; 
+    margin: 0;
+  }
+  
+  /* Left Panel for Datasets and Columns */
+  .file-upload-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    height: 100vh; 
+  }
+  
+  .left-panel {
+    width: 25%; 
+    background-color: var(--input-bg);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    height: 100%;
+    overflow-y: auto;
+    transition: width var(--transition-speed);
+  }
+  
+  /* List styling for datasets and their columns */
+  .left-panel ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .left-panel li {
+    text-wrap: wrap;
+    padding: 12px;
+    margin: 5px 0;
+    background-color: var(--input-bg);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background-color var(--transition-speed), padding-left var(--transition-speed);
+    font-size: 1rem;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+  }
+  
+  .left-panel li:hover {
+    background-color: var(--primary-color);
+    color: white;
+  }
+  
+  .left-panel ul ul {
+    padding-top: 20px;
+    transition: max-height var(--transition-speed);
+  }
+  
+  .left-panel ul ul li {
+    font-size: 0.9rem; 
+    margin: 2px 0;
+    color: var(--secondary-color);
+  }
+  
+  .left-panel ul ul li:hover {
+    background-color: var(--primary-color);
+    color: white;
+  }
+  
+  /* Right Panel where datasets are displayed */
+  .right-panel {
+    width: 70%;  
+    background-color: #fff;
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    overflow-x: auto;
+    overflow-y: auto;
+  }
+  
+  .right-panel .upload-btn, .right-panel .message, .right-panel .heading {
+    align-self: center;
+  }
+  
+  .loader {
+    align-self: center;
+    max-height: 200px;
+  }
+  
+  .table-div {
+    width: 100%; 
+    margin: 20px auto;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    background-color: white;
+    box-shadow: var(--box-shadow);
+  }
+  
+  .loader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+  }
+  
+  .levenshtein_display {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .levenshtein_display p {
+    text-align: left;
+    margin: 0;
+  }
