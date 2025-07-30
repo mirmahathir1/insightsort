@@ -469,91 +469,96 @@ if st.session_state.show_sql_result and st.session_state.confirmed_sort_option a
             join_index, semantic_index = load_indexes("index_files")
             augment_data = discover_augmentable_column(sort_attr, st.session_state.uploaded_table, st.session_state.data_lake, semantic_index, join_index, 5)
 
-            with st.expander("✨ Suggested Semantic Augmentation", expanded=True):
-                st.markdown(
-                    f"""
-                    <div style='
-                        background-color: #f1f8e9;
-                        padding: 12px 16px;
-                        border-radius: 8px;
-                        border-left: 4px solid #4CAF50;
-                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-                    '>
-                        <p style='
-                            margin: 0;
-                            font-size: 17px;
-                            font-weight: 600;
-                            color: #2e7d32;
-                        '>
-                            Suggested Attribute:
-                            <span style='
-                                color: #1b5e20;
-                                font-weight: 600;
-                                padding-left: 4px;
-                            '>{augment_data['suggested_attribute']}</span>
-                        </p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
+            if augment_data is None:
+                st.warning(
+                    "🤷‍♂️ Sorry, I couldn't find any data-lake column that can supply "
+                    "the required attribute for this sort."
                 )
+                # nothing else to display, so skip the rest of this block
+            else:
+                with st.expander("✨ Suggested Semantic Augmentation", expanded=True):
+                    st.markdown(
+                        f"""
+                        <div style='
+                            background-color: #f1f8e9;
+                            padding: 12px 16px;
+                            border-radius: 8px;
+                            border-left: 4px solid #4CAF50;
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                        '>
+                            <p style='
+                                margin: 0;
+                                font-size: 17px;
+                                font-weight: 600;
+                                color: #2e7d32;
+                            '>
+                                Suggested Attribute:
+                                <span style='
+                                    color: #1b5e20;
+                                    font-weight: 600;
+                                    padding-left: 4px;
+                                '>{augment_data['suggested_attribute']}</span>
+                            </p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
-                st.markdown("<br>", unsafe_allow_html=True)
-
-                # Convert numpy values to Python float if needed
-                sem_dist = float(augment_data['semantic_distance'])
-                join_dist = float(augment_data['join_distance'])
-                
-                # Create two columns for the data
-                col1, col2 = st.columns([1, 1])
-                
-                with col1:
-                    st.markdown("<div style='background-color:#f9f9f9; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
-                    st.markdown("#### 📂 Source Information")
-                    st.markdown(f"**Table:** `{augment_data['matched_table']}`")
-                    st.markdown(f"**Column:** `{augment_data['matched_column']}`")
-                    st.markdown("</div>", unsafe_allow_html=True)
-                    
                     st.markdown("<br>", unsafe_allow_html=True)
+
+                    # Convert numpy values to Python float if needed
+                    sem_dist = float(augment_data['semantic_distance'])
+                    join_dist = float(augment_data['join_distance'])
                     
-                    # Display join quality with visual indicator
-                    st.markdown("<div style='background-color:#fff3e0; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
-                    st.markdown("#### 🔗 Join Quality")
-                    # Create a progress bar for join distance (inverted since lower is better)
-                    join_quality = max(0, min(1.0, 1.0 - join_dist)) if join_dist <= 1.0 else 0
-                    st.progress(join_quality)
-                    st.markdown(f"**Join Distance:** `{join_dist:.4f}`")
-                    st.markdown("</div>", unsafe_allow_html=True)
-                
-                with col2:
-                    st.markdown("<div style='background-color:#f9f9f9; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
-                    st.markdown("#### Join Configuration")
-                    st.markdown(f"**Input Table Key:** `{augment_data['join_key_input']}`")
-                    st.markdown(f"**Data Lake Table Key:** `{augment_data['join_key_datalake']}`")
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    # Create two columns for the data
+                    col1, col2 = st.columns([1, 1])
                     
+                    with col1:
+                        st.markdown("<div style='background-color:#f9f9f9; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
+                        st.markdown("#### 📂 Source Information")
+                        st.markdown(f"**Table:** `{augment_data['matched_table']}`")
+                        st.markdown(f"**Column:** `{augment_data['matched_column']}`")
+                        st.markdown("</div>", unsafe_allow_html=True)
+                        
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        
+                        # Display join quality with visual indicator
+                        st.markdown("<div style='background-color:#fff3e0; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
+                        st.markdown("#### 🔗 Join Quality")
+                        # Create a progress bar for join distance (inverted since lower is better)
+                        join_quality = max(0, min(1.0, 1.0 - join_dist)) if join_dist <= 1.0 else 0
+                        st.progress(join_quality)
+                        st.markdown(f"**Join Distance:** `{join_dist:.4f}`")
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    with col2:
+                        st.markdown("<div style='background-color:#f9f9f9; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
+                        st.markdown("#### Join Configuration")
+                        st.markdown(f"**Input Table Key:** `{augment_data['join_key_input']}`")
+                        st.markdown(f"**Data Lake Table Key:** `{augment_data['join_key_datalake']}`")
+                        st.markdown("</div>", unsafe_allow_html=True)
+                        
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        
+                        # Display semantic quality with visual indicator
+                        st.markdown("<div style='background-color:#e3f2fd; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
+                        st.markdown("#### Semantic Match")
+                        # Create a progress bar for semantic distance (inverted since lower is better)
+                        semantic_quality = max(0, min(1.0, 1.0 - sem_dist)) if sem_dist <= 1.0 else 0
+                        st.progress(semantic_quality)
+                        st.markdown(f"**Semantic Distance:** `{sem_dist:.4f}`")
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    # Add action buttons at the bottom
                     st.markdown("<br>", unsafe_allow_html=True)
+                    col_btn1, col_btn2 = st.columns([1, 1])
                     
-                    # Display semantic quality with visual indicator
-                    st.markdown("<div style='background-color:#e3f2fd; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
-                    st.markdown("#### Semantic Match")
-                    # Create a progress bar for semantic distance (inverted since lower is better)
-                    semantic_quality = max(0, min(1.0, 1.0 - sem_dist)) if sem_dist <= 1.0 else 0
-                    st.progress(semantic_quality)
-                    st.markdown(f"**Semantic Distance:** `{sem_dist:.4f}`")
-                    st.markdown("</div>", unsafe_allow_html=True)
-                
-                # Add action buttons at the bottom
-                st.markdown("<br>", unsafe_allow_html=True)
-                col_btn1, col_btn2 = st.columns([1, 1])
-                
-                with col_btn1:
-                    if st.button("✅ Apply Augmentation", type="primary", key="apply_aug"):
-                            st.session_state.apply_augmentation_clicked = True
-                with col_btn2:
-                    st.button("🔎 Preview Data", key="preview_aug")
+                    with col_btn1:
+                        if st.button("✅ Apply Augmentation", type="primary", key="apply_aug"):
+                                st.session_state.apply_augmentation_clicked = True
+                    with col_btn2:
+                        st.button("🔎 Preview Data", key="preview_aug")
 
-
-        
         # proceeding with sql generation
 
     if selected_row["Column present"] == "Yes":
