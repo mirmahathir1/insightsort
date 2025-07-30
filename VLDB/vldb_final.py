@@ -182,12 +182,12 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
                     st.session_state.suggestions_df = pd.DataFrame(table_rows)
 
                     input_columns = list(st.session_state.suggestions_df.columns)
-                    print(st.session_state.suggestions_df)
+                    # print(st.session_state.suggestions_df)
                     st.session_state.suggestions_df = update_suggestions_with_semantic_scores(
                         st.session_state.suggestions_df,
                         input_columns
                     )
-                    print(st.session_state.suggestions_df)
+                    # print(st.session_state.suggestions_df)
                     st.session_state.suggestions_df.index = st.session_state.suggestions_df.index + 1
 
                 else:
