@@ -1,0 +1,3 @@
+{
+  "content": "SELECT input_table.country, input_table.\"gdp (in trillions USD)\", input_table.region, input_table.official_language, input_table.internet_penetration, input_table.currency, GDP_Per_Capita_Completed.official_language\nFROM input_table\nINNER JOIN GDP_Per_Capita_Completed ON input_table.country = GDP_Per_Capita_Completed.country\nORDER BY GDP_Per_Capita_Completed.official_language DESC;"
+}

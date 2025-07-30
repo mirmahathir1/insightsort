@@ -1,0 +1,3 @@
+{
+  "content": "SELECT input_table.employee_name, input_table.job_title, input_table.department, input_table.annual_salary, input_table.location, avg_salary_by_title.avg_salary\nFROM input_table\nINNER JOIN avg_salary_by_title ON input_table.job_title = avg_salary_by_title.job_title\nORDER BY avg_salary_by_title.avg_salary DESC;"
+}

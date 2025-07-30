@@ -1,0 +1,31 @@
+country,gdp (in trillions USD),region,official_language,internet_penetration,currency
+United States,27,North America,English,41.99,USD
+China,17.7,Asia,Mandarin,92.74,CNY
+India,3.7,Asia,"Hindi, English",55.01,INR
+Germany,4.5,Europe,German,78.43,EUR
+France,3.1,Europe,French,58.08,EUR
+Brazil,2.1,South America,Portuguese,70.16,BRL
+Japan,4.2,Asia,Japanese,71.71,JPY
+Canada,2.1,North America,"English, French",50.72,CAD
+Australia,1.7,Oceania,English,96.24,AUD
+United Kingdom,3.2,Europe,English,84.96,GBP
+Russia,2.2,Europe,Russian,94.49,RUB
+Mexico,1.8,North America,Spanish,91.9,MXN
+South Korea,1.7,Asia,Korean,74.68,KRW
+South Africa,0.4,Africa,"Zulu, Xhosa, Afrikaans, English, etc.",93.47,ZAR
+Saudi Arabia,1.1,Asia,Arabic,45.13,SAR
+Italy,2.3,Europe,Italian,51.37,EUR
+Spain,1.6,Europe,Spanish,42.62,EUR
+Netherlands,1.1,Europe,Dutch,58.87,EUR
+Sweden,0.7,Europe,Swedish,62.54,SEK
+Norway,0.6,Europe,Norwegian,55.74,NOK
+Argentina,0.6,South America,Spanish,88.07,ARS
+Turkey,1.1,Europe,Turkish,60.69,TRY
+Indonesia,1.4,Asia,Indonesian,56.29,IDR
+Egypt,0.4,Africa,Arabic,71.48,EGP
+Nigeria,0.5,Africa,English,48.17,NGN
+Vietnam,0.4,Asia,Vietnamese,86.53,VND
+Poland,0.9,Europe,Polish,44.32,PLN
+Thailand,0.6,Asia,Thai,97.24,THB
+Pakistan,0.3,Asia,"Urdu, English",84.79,PKR
+Malaysia,0.5,Asia,Malay,51.53,MYR
