@@ -1,47 +1,50 @@
+import os
+import shutil
+from pathlib import Path
+import base64
+
 import streamlit as st
 import pandas as pd
-import base64
+import duckdb
 
 from prompts import build_suggestion_prompt, generate_augmented_sql_prompt
 from llm_utils import call_gpt, parse_suggestion
-
-
 from index_builder import build_indexes_from_datalake
 from join_discovery import load_indexes, discover_augmentable_column
-from semantic_score import compute_semantic_interestingness, update_suggestions_with_semantic_scores
+from semantic_score import (
+    compute_semantic_interestingness,
+    update_suggestions_with_semantic_scores,
+)
 
-import duckdb
+# ───────────────────── Connections / Globals ─────────────────────────────────
 con = duckdb.connect()
 
 # logo of InsightSort
 with open("insightsort_logo.png", "rb") as image_file:
     encoded_image = base64.b64encode(image_file.read()).decode()
 
-
-
-# col to sort and table (source) form the datalake
+# global state helpers
 global_col = ""
 global_source = ""
 
-# st.session_state.indexes_built = False
+# ───────────────────── Session‑state defaults ────────────────────────────────
 if "data_lake" not in st.session_state:
     st.session_state.data_lake = {}
 
-# dictionary of column_name(input table): [SORT_ORDERS]
 if "sorting_suggestions" not in st.session_state:
     st.session_state.sorting_suggestions = {}
 
 if "uploaded_table" not in st.session_state:
     st.session_state.uploaded_table = None
+
 if "suggestions_df" not in st.session_state:
     st.session_state.suggestions_df = None
-# Keep track of the *confirmed* selection after button press
+
 if "confirmed_sort_option" not in st.session_state:
     st.session_state.confirmed_sort_option = None
-# Flag to indicate if the button was pressed and a valid selection was made
+
 if "show_sql_result" not in st.session_state:
     st.session_state.show_sql_result = False
-
 
 if "apply_sort_clicked" not in st.session_state:
     st.session_state.apply_sort_clicked = False
@@ -52,12 +55,14 @@ if "augment_data_clicked" not in st.session_state:
 if "apply_augmentation_clicked" not in st.session_state:
     st.session_state.apply_augmentation_clicked = False
 
-# Streamlit app setup
+if "input_table_files" not in st.session_state:
+    st.session_state.input_table_files = []
+
+# ───────────────────── Page config & theme tweaks ────────────────────────────
 st.set_page_config(page_title="InsightSort", layout="wide")
 
-
-# setting primary as blue instead of default red
-st.markdown("""
+st.markdown(
+    """
 <style>
 div.stButton > button[kind="primary"] {
     background-color: #e3f2fd;
@@ -69,85 +74,180 @@ div.stButton > button[kind="primary"]:hover {
     background-color: #bbdefb;
 }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
-# Title and Image
+# ───────────────────── Top banner ────────────────────────────────────────────
 st.markdown(
     f"""
-    <div style="display: inline-flex; align-items: center; justify-content: flex-start; margin-bottom: 15px; margin-top: -12px;">
-        <span style="font-size: 42px; font-weight: bold;">InsightSort</span>
-        <img src="data:image/png;base64,{encoded_image}" width="50" style="margin-left: 15px;" />
-    </div>
-    """,
-    unsafe_allow_html=True
+<div style="display: inline-flex; align-items: center; justify-content: flex-start; margin-bottom: 15px; margin-top: -12px;">
+    <span style="font-size: 42px; font-weight: bold;">InsightSort</span>
+    <img src="data:image/png;base64,{encoded_image}" width="50" style="margin-left: 15px;" />
+</div>
+""",
+    unsafe_allow_html=True,
+)
+st.markdown(
+    """
+<p style="font-weight: 600; font-size: 1.1rem;">
+    Discover meaningful ways to sort your tables!
+</p>
+<p style="font-size: 1rem; margin-top: -10px;">
+    InsightSort helps you explore your data by recommending smart, semantically
+    interesting attributes to sort by — even if those attributes aren’t in your
+    original table.
+</p>
+""",
+    unsafe_allow_html=True,
 )
 
-# Description of InsightSort
-st.markdown(f"""<p style="font-weight: 600; font-size: 1.1rem;">Discover meaningful ways to sort your tables!</p>""",  unsafe_allow_html=True)
-st.markdown(f"""<p style="font-size: 1rem; margin-top: -10px;">InsightSort helps you explore your data by recommending smart, semantically interesting attributes to sort by — even if those attributes aren’t in your original table.</p>""",  unsafe_allow_html=True)
-
-
-
-# Sidebar (for file uploads)
+# ───────────────────── Sidebar header ────────────────────────────────────────
 st.sidebar.markdown(
     f"""
-    <div style="display: inline-flex; align-items: center; justify-content: flex-start; margin-top: 20px">
-        <span style="font-size: 24px; font-weight: bold;">InsightSort</span>
-        <img src="data:image/png;base64,{encoded_image}" width="30" style="margin-left: 10px;" />
-    </div>
-    """,
-    unsafe_allow_html=True
+<div style="display: inline-flex; align-items: center; justify-content: flex-start; margin-top: 20px">
+    <span style="font-size: 24px; font-weight: bold;">InsightSort</span>
+    <img src="data:image/png;base64,{encoded_image}" width="30" style="margin-left: 10px;" />
+</div>
+""",
+    unsafe_allow_html=True,
 )
 
-# Input table upload
-st.sidebar.header("📂 Upload Files")
-uploaded_table = st.sidebar.file_uploader("⬆️ Upload Input Table (CSV)", type=["csv"])
-st.sidebar.markdown("This is your starting point — we'll help you sort it better by suggesting insightful attributes to sort on.")
+# ───────────────────── Data‑lake picker ───────────────────────────────────────
+DATALAKES_ROOT = "datalakes"  # ./datalakes/datalake1/, datalake2/, …
+
+st.sidebar.header("🏞️  Data‑lake")
+
+datalake_opts = [
+    d
+    for d in os.listdir(DATALAKES_ROOT)
+    if (Path(DATALAKES_ROOT) / d).is_dir()
+]
+if not datalake_opts:
+    datalake_opts = ["<no datalakes found>"]
+
+# No data‑lake is pre‑selected (index=None) so the user must choose one
+chosen_lake = st.sidebar.selectbox(
+    "Select a data lake",
+    options=datalake_opts,
+    index=None,
+    placeholder="Choose a data lake…",
+)
+
+# Load / switch data‑lake
+if chosen_lake:  # only proceed if the user actually picked one
+    if (
+        "chosen_lake" not in st.session_state
+        or st.session_state.chosen_lake != chosen_lake
+    ):
+        # ─── Fresh lake selected — reset relevant state ───────────────────────
+        st.session_state.chosen_lake = chosen_lake
+        st.session_state.data_lake.clear()
+        st.session_state.uploaded_table = None
+        st.session_state.input_table_files = []
+
+        if chosen_lake != "<no datalakes found>":
+            lake_dir   = Path(DATALAKES_ROOT) / chosen_lake
+            tables_dir = lake_dir / "all_tables"
+            index_dir  = lake_dir / "index_files"
+            input_dir  = lake_dir / "input_tables"
+
+            # 1️⃣ Read every CSV in all_tables/*
+            for csv_path in tables_dir.glob("*.csv"):
+                try:
+                    st.session_state.data_lake[csv_path.stem] = pd.read_csv(csv_path)
+                except Exception as e:
+                    st.warning(f"⚠️  Failed to read {csv_path.name}: {e}")
+
+            # 2️⃣ Ensure indexes exist (build if missing/empty)
+            if not index_dir.exists() or not any(index_dir.iterdir()):
+                with st.spinner(f"Building indexes for '{chosen_lake}' …"):
+                    build_indexes_from_datalake(
+                        st.session_state.data_lake, save_dir=index_dir
+                    )
+                st.success("✅ Indexes built and stored in the data‑lake.")
+
+            # 3️⃣ Copy/refresh indexes into project‑root ./index_files
+            dest = Path("index_files")
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(index_dir, dest)
+
+            # 4️⃣ Collect available input tables (but don’t load yet)
+            if input_dir.exists():
+                st.session_state.input_table_files = list(input_dir.glob("*.csv"))
+            else:
+                st.session_state.input_table_files = []
+
+            st.success(
+                f"✅ Loaded data lake “{chosen_lake}” "
+                f"({len(st.session_state.data_lake)} tables)."
+            )
+        else:
+            st.warning("No data‑lake directories found under ./datalakes/.")
+
+# ───────────────────── Sidebar: Input‑table picker ───────────────────────────
+selected_input_name = None          # define once, keep in scope
+
+if st.session_state.get("chosen_lake") \
+   and st.session_state.chosen_lake != "<no datalakes found>":
+
+    st.sidebar.header("📂 Input Table")
+
+    input_table_names = [
+        p.stem for p in st.session_state.get("input_table_files", [])
+    ]
+
+    if input_table_names:
+        selected_input_name = st.sidebar.selectbox(
+            "Select an input table",
+            options=input_table_names,
+            index=None,
+            placeholder="Choose an input table…",
+        )
+    else:
+        st.sidebar.write(
+            "*No input tables found in this data‑lake’s `input_tables/` folder.*"
+        )
+# else: no data‑lake selected → don’t show the picker
 
 
-if "uploaded_table" not in st.session_state:
-    st.session_state.uploaded_table = None # Initialize to None
+# Load input table when selected
+if selected_input_name:
+    # If the selected table changed, or none was loaded yet → load it
+    if (
+        st.session_state.uploaded_table is None
+        or st.session_state.uploaded_table.attrs.get("name") != selected_input_name
+    ):
+        # Find the corresponding file path
+        for p in st.session_state.input_table_files:
+            if p.stem == selected_input_name:
+                try:
+                    st.session_state.uploaded_table = pd.read_csv(p)
+                    # Tag the DataFrame so we can detect changes later
+                    st.session_state.uploaded_table.attrs["name"] = selected_input_name
+                    con.register("input_table", st.session_state.uploaded_table)
+                    st.success(f"✅ Loaded input table “{selected_input_name}”.")
+                except Exception as e:
+                    st.error(f"Failed to read {p.name}: {e}")
+                break
 
-# storing the uploaded input table in session state and displaying it
-if uploaded_table:
-    st.session_state.uploaded_table = pd.read_csv(uploaded_table)
-    con.register('input_table', st.session_state.uploaded_table)  # match the placeholder used in LLM SQL
-
-    st.subheader("Input Table: ")
-    st.dataframe(st.session_state.uploaded_table)
-
-
-# Data lake upload
-datalake_files = st.sidebar.file_uploader("⬆️ Upload Data Lake CSVs", type=["csv"], accept_multiple_files=True)
-st.sidebar.markdown("InsightSort will scan these tables for useful attributes that can be joined with your input table to enhance sorting.")
-
-
-if datalake_files:
-    for file in datalake_files:
-        df = pd.read_csv(file)
-        st.session_state.data_lake[file.name.replace(".csv", "")] = df
-
-    if "indexes_built" not in st.session_state:
-        try:
-            build_indexes_from_datalake(st.session_state.data_lake, save_dir="index_files")
-            st.session_state.indexes_built = True
-            st.success("✅ Indexes built for joinability and semantic search.")
-        except Exception as e:
-            st.error(f"❌ Failed to build indexes: {e}")
-
-
-# Display data lake tables
+# ───────────────────── Main‑page: Show data‑lake tables ──────────────────────
 if st.session_state.data_lake:
     st.subheader("Data Lake Tables 📚")
     datalake_table_names = list(st.session_state.data_lake.keys())
+    selected_datalake_table = st.selectbox(
+        "Select a table to view it here:", datalake_table_names
+    )
 
-    selected_datalake_table = st.selectbox("Select a table to view it here: ", datalake_table_names)
-
-    if selected_datalake_table is not None:
-        st.write(f"{selected_datalake_table} Table")
+    if selected_datalake_table:
+        st.write(f"**{selected_datalake_table}**")
         st.dataframe(st.session_state.data_lake[selected_datalake_table])
-    else:
-        st.write("Select a table to display it here.")
+
+# ───────────────────── Main‑page: Show input table ───────────────────────────
+if st.session_state.uploaded_table is not None:
+    st.subheader("Input Table:")
+    st.dataframe(st.session_state.uploaded_table)
 
 
 # Only generate suggestions if an input table is loaded AND suggestions haven't been generated yet
