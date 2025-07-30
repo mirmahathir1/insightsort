@@ -2,7 +2,7 @@ import os
 import shutil
 from pathlib import Path
 import base64
-
+import traceback
 import streamlit as st
 import pandas as pd
 import duckdb
@@ -17,7 +17,9 @@ from semantic_score import (
 )
 
 # ───────────────────── Connections / Globals ─────────────────────────────────
-con = duckdb.connect()
+if "con" not in st.session_state:                # ① create once
+    st.session_state.con = duckdb.connect()
+con = st.session_state.con                       # reuse thereafter
 
 # logo of InsightSort
 with open("insightsort_logo.png", "rb") as image_file:
@@ -248,6 +250,11 @@ if st.session_state.data_lake:
 if st.session_state.uploaded_table is not None:
     st.subheader("Input Table:")
     st.dataframe(st.session_state.uploaded_table)
+    # drop any existing view/table with that name
+    con.execute("DROP VIEW IF EXISTS input_table")
+    con.execute("DROP TABLE IF EXISTS input_table")
+    # register the current DataFrame
+    con.register("input_table", st.session_state.uploaded_table)
 
 
 # Only generate suggestions if an input table is loaded AND suggestions haven't been generated yet
@@ -584,6 +591,7 @@ if st.session_state.show_sql_result and st.session_state.confirmed_sort_option a
                         st.error("⚠️ Could not generate SQL query. Please try again.")
                 except Exception as e:
                         st.error(f"⚠️ Error calling LLM for SQL generation: {e}")
+                        print(traceback.format_exc())  # or st.text()
         
     if st.session_state.augment_data_clicked:
         join_index, semantic_index = load_indexes("index_files")

@@ -1,0 +1,3 @@
+{
+  "content": "SELECT \"country\", \"gdp (in trillions USD)\", \"region\", \"official_language\", \"internet_penetration\", \"currency\"\nFROM input_table\nORDER BY \"gdp (in trillions USD)\" DESC;"
+}
