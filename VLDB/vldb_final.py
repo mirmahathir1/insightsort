@@ -286,15 +286,54 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
                                 "Column present": suggestion.get("column present in the table"),
                             })
 
-                    st.session_state.suggestions_df = pd.DataFrame(table_rows)
+                    # ─── Load/calc indexes once ──────────────────────────────────────────────
+                    if "join_index" not in st.session_state or "semantic_index" not in st.session_state:
+                        st.session_state.join_index, st.session_state.semantic_index = load_indexes("index_files")
+
+                    # ─── Cache for aug-info across clicks ────────────────────────────────────
+                    if "augmentation_cache" not in st.session_state:
+                        st.session_state.augmentation_cache = {}
+
+                    filtered_rows = []  # rows that will survive into suggestions_df
+
+                    for base_col, sort_list in suggestions.items():
+                        for s in sort_list:
+                            sort_attr   = s["column"]
+                            col_present = s.get("column present in the table") == "Yes"
+
+                            if not col_present:
+                                aug = discover_augmentable_column(
+                                    sort_attr,
+                                    df,                                   # the input table
+                                    st.session_state.data_lake,
+                                    st.session_state.semantic_index,
+                                    st.session_state.join_index,
+                                    5
+                                )
+                                if aug is None:
+                                    # ✂️  drop this suggestion – we can’t satisfy it
+                                    continue
+
+                                # ✅  keep & remember its augmentation data
+                                st.session_state.augmentation_cache[(base_col, sort_attr)] = aug
+
+                            # build the row that will appear in the UI
+                            filtered_rows.append({
+                                "Base Column":     base_col,
+                                "Sort Attribute":  sort_attr,
+                                "Description":     s["description"],
+                                "Interestingness": s.get("interestingness", ""),
+                                "Required Column": s["required_column"],
+                                "Column present":  "Yes" if col_present else "No",
+                            })
+
+                    st.session_state.suggestions_df = pd.DataFrame(filtered_rows)
 
                     input_columns = list(st.session_state.suggestions_df.columns)
-                    # print(st.session_state.suggestions_df)
                     st.session_state.suggestions_df = update_suggestions_with_semantic_scores(
                         st.session_state.suggestions_df,
                         input_columns
                     )
-                    # print(st.session_state.suggestions_df)
                     st.session_state.suggestions_df.index = st.session_state.suggestions_df.index + 1
 
                 else:
@@ -467,8 +506,9 @@ if st.session_state.show_sql_result and st.session_state.confirmed_sort_option a
     with col_exp2:
         if st.session_state.augment_data_clicked:
             join_index, semantic_index = load_indexes("index_files")
-            augment_data = discover_augmentable_column(sort_attr, st.session_state.uploaded_table, st.session_state.data_lake, semantic_index, join_index, 5)
 
+            row_key = (base_col, sort_attr)
+            augment_data = st.session_state.augmentation_cache.get(row_key)
             if augment_data is None:
                 st.warning(
                     "🤷‍♂️ Sorry, I couldn't find any data-lake column that can supply "
