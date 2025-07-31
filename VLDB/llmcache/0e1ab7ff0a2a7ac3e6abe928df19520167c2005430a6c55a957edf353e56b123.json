@@ -1,0 +1,3 @@
+{
+  "content": "SELECT input_table.employee_name, input_table.job_title, input_table.department, input_table.annual_salary, input_table.location, crime_rates.crime_rate_per_1000\nFROM input_table\nINNER JOIN crime_rates ON input_table.location = crime_rates.location\nORDER BY crime_rates.crime_rate_per_1000 DESC"
+}

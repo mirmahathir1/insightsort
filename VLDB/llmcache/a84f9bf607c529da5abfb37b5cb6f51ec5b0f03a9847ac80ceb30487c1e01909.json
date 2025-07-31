@@ -1,0 +1,3 @@
+{
+  "content": "SELECT input_table.employee_name, input_table.job_title, input_table.department, input_table.annual_salary, input_table.location, cost_of_living.cost_of_living_index\nFROM input_table\nINNER JOIN cost_of_living ON input_table.location = cost_of_living.location\nORDER BY cost_of_living.cost_of_living_index DESC"
+}

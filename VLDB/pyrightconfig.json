@@ -1,0 +1,8 @@
+{
+  "exclude": [
+    "llmcache",
+    "datalakes",
+    "archive"
+  ],
+  "typeCheckingMode": "off"
+}
