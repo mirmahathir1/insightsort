@@ -1,3 +1,0 @@
-{
-  "content": "SELECT input_table.employee_name, input_table.job_title, input_table.department, input_table.annual_salary, input_table.location, department_salary_summary.min_salary\nFROM input_table\nINNER JOIN department_salary_summary ON input_table.department = department_salary_summary.department\nORDER BY department_salary_summary.min_salary DESC"
-}

@@ -2,3 +2,4 @@ index_files
 .streamlit
 __pycache__
 test_indexes
+llmcache

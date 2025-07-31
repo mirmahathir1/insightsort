@@ -6,11 +6,11 @@ import traceback
 import streamlit as st
 import pandas as pd
 import duckdb
-
+import pprint
 from prompts import build_suggestion_prompt, generate_augmented_sql_prompt
 from llm_utils import call_gpt, parse_suggestion
-from index_builder import build_indexes_from_datalake
-from join_discovery import load_indexes, discover_augmentable_column
+from index_builder import build_indexes_from_datalake, load_indexes
+from join_discovery import discover_augmentable_column
 from semantic_score import (
     compute_semantic_interestingness,
     update_suggestions_with_semantic_scores,
@@ -154,6 +154,8 @@ if chosen_lake:  # only proceed if the user actually picked one
             index_dir  = lake_dir / "index_files"
             input_dir  = lake_dir / "input_tables"
 
+            st.session_state.index_dir = index_dir 
+
             # 1️⃣ Read every CSV in all_tables/*
             for csv_path in tables_dir.glob("*.csv"):
                 try:
@@ -162,18 +164,11 @@ if chosen_lake:  # only proceed if the user actually picked one
                     st.warning(f"⚠️  Failed to read {csv_path.name}: {e}")
 
             # 2️⃣ Ensure indexes exist (build if missing/empty)
-            if not index_dir.exists() or not any(index_dir.iterdir()):
-                with st.spinner(f"Building indexes for '{chosen_lake}' …"):
-                    build_indexes_from_datalake(
-                        st.session_state.data_lake, save_dir=index_dir
-                    )
-                st.success("✅ Indexes built and stored in the data‑lake.")
-
-            # 3️⃣ Copy/refresh indexes into project‑root ./index_files
-            dest = Path("index_files")
-            if dest.exists():
-                shutil.rmtree(dest)
-            shutil.copytree(index_dir, dest)
+            with st.spinner(f"Building indexes for '{chosen_lake}' …"):
+                build_indexes_from_datalake(
+                    st.session_state.data_lake, save_dir=index_dir
+                )
+            st.success("✅ Indexes built and stored in the data‑lake.")
 
             # 4️⃣ Collect available input tables (but don’t load yet)
             if input_dir.exists():
@@ -269,26 +264,13 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
             with st.spinner("Thinking of smart ways to sort your table..."):
                 prompt = build_suggestion_prompt(sample_rows, column_names)
                 gpt_response = call_gpt(prompt)
-                # print("gpt response: ", gpt_response)
                 suggestions = parse_suggestion(gpt_response)
                 st.session_state.sorting_suggestions = suggestions
 
                 if st.session_state.sorting_suggestions:
-                    table_rows = []
-                    for base_col, sort_list in suggestions.items():
-                        for suggestion in sort_list:
-                            table_rows.append({
-                                "Base Column": base_col,
-                                "Sort Attribute": suggestion.get("column"),
-                                "Description": suggestion.get("description"),
-                                "Interestingness": suggestion.get("interestingness", ""),
-                                "Required Column": suggestion.get("required_column"),
-                                "Column present": suggestion.get("column present in the table"),
-                            })
-
                     # ─── Load/calc indexes once ──────────────────────────────────────────────
                     if "join_index" not in st.session_state or "semantic_index" not in st.session_state:
-                        st.session_state.join_index, st.session_state.semantic_index = load_indexes("index_files")
+                        st.session_state.join_index, st.session_state.semantic_index, st.session_state.semantic_types = load_indexes(st.session_state.index_dir)
 
                     # ─── Cache for aug-info across clicks ────────────────────────────────────
                     if "augmentation_cache" not in st.session_state:
@@ -296,10 +278,12 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
 
                     filtered_rows = []  # rows that will survive into suggestions_df
 
+                    pprint.pprint(suggestions)
+
                     for base_col, sort_list in suggestions.items():
                         for s in sort_list:
                             sort_attr   = s["column"]
-                            col_present = s.get("column present in the table") == "Yes"
+                            col_present = s["column present in the table"] == "Yes"
 
                             if not col_present:
                                 aug = discover_augmentable_column(
@@ -308,6 +292,7 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
                                     st.session_state.data_lake,
                                     st.session_state.semantic_index,
                                     st.session_state.join_index,
+                                    st.session_state.semantic_types,
                                     5
                                 )
                                 if aug is None:
@@ -340,6 +325,7 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
                     st.warning("Could not generate sorting suggestions.")
                     st.session_state.suggestions_df = None # Ensure it's None if no suggestions
         except Exception as e:
+            print(traceback.format_exc())
             st.error(f"Error generating suggestions: {e}")
             st.session_state.sorting_suggestions = {}
             st.session_state.suggestions_df = None
@@ -347,7 +333,12 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
 # --- Display Suggestions and Selection Form ---
 if st.session_state.suggestions_df is not None and not st.session_state.suggestions_df.empty:
         st.subheader("🔍 Sorting Suggestions")
-        sorted_suggestions_df = st.session_state.suggestions_df.groupby("Base Column", group_keys=False).apply(lambda x: x.sort_values("Interestingness", ascending=False))
+        sorted_suggestions_df = (
+            st.session_state.suggestions_df
+                .sort_values(["Interestingness"],
+                            ascending=[False])
+        )
+
         st.table(sorted_suggestions_df)
 
         input_columns = list(st.session_state.uploaded_table.columns)
@@ -505,7 +496,7 @@ if st.session_state.show_sql_result and st.session_state.confirmed_sort_option a
 
     with col_exp2:
         if st.session_state.augment_data_clicked:
-            join_index, semantic_index = load_indexes("index_files")
+            join_index, semantic_index, semantic_types = load_indexes(st.session_state.index_dir)
 
             row_key = (base_col, sort_attr)
             augment_data = st.session_state.augmentation_cache.get(row_key)
@@ -637,11 +628,11 @@ if st.session_state.show_sql_result and st.session_state.confirmed_sort_option a
                 except Exception as e:
                         st.error(f"⚠️ Error calling LLM for SQL generation: {e}")
                         print(traceback.format_exc())  # or st.text()
-        
-    if st.session_state.augment_data_clicked:
-        join_index, semantic_index = load_indexes("index_files")
 
-        augment_data = discover_augmentable_column(sort_attr, st.session_state.uploaded_table, st.session_state.data_lake, semantic_index, join_index, 5)
+    if st.session_state.augment_data_clicked:
+        join_index, semantic_index, semantic_types = load_indexes(st.session_state.index_dir)
+
+        augment_data = discover_augmentable_column(sort_attr, st.session_state.uploaded_table, st.session_state.data_lake, semantic_index, join_index, semantic_types, 5)
         
         if st.session_state.apply_augmentation_clicked:
             if augment_data is not None:

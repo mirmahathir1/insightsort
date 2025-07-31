@@ -29,7 +29,7 @@ def call_gpt(prompt: str, model: str = "gpt-4o", temperature: float = 0.4) -> st
     if cache_file.exists():
         with cache_file.open("r", encoding="utf-8") as f:
             cached_content = json.load(f)["content"]
-        print("from cache:", cached_content)
+        # print("from cache:", cached_content)
         return cached_content
 
     # ─── 2) Otherwise query the API ─────────────────────────────────────────────
@@ -40,7 +40,7 @@ def call_gpt(prompt: str, model: str = "gpt-4o", temperature: float = 0.4) -> st
             temperature=temperature,
         )
         content = response["choices"][0]["message"]["content"]
-        print("from API:", content)
+        # print("from API:", content)
 
         # ─── 3) Persist to cache ───────────────────────────────────────────────
         with cache_file.open("w", encoding="utf-8") as f:

@@ -1,3 +1,0 @@
-{
-  "content": "SELECT input_table.country, input_table.\"gdp (in trillions USD)\", input_table.region, input_table.official_language, input_table.internet_penetration, input_table.currency, country_currency_strength.currency_strength\nFROM input_table\nINNER JOIN country_currency_strength ON input_table.country = country_currency_strength.country\nORDER BY country_currency_strength.currency_strength DESC"
-}

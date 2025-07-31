@@ -91,6 +91,53 @@ Your task is to:
 5. Wrap column names that contain spaces or special characters in double quotes, e.g., "cost of living index"
 
 Output only the SQL query — no explanations, no markdown, and no extra formatting.
-"""
+"""    
 
-    
+import pandas as pd
+
+def generate_semantic_type_prompt(df: pd.DataFrame, top_k: int = 20) -> str:
+    """
+    Build a prompt for OpenAI ChatCompletion that asks the model to
+    infer a high-level semantic type for each DataFrame column.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The input data whose columns need semantic typing.
+    top_k : int, default 20
+        Number of most-frequent (non-null) values to show per column.
+
+    Returns
+    -------
+    str
+        A ready-to-use prompt string.
+    """
+    header = (
+        "You are a semantic-typing assistant.\n"
+        "For each column below, infer an elaborate semantic_type "
+        "e.g. detailed elaborate name.\n"
+        f"Base your decision **only** on the top {top_k} most-frequent values provided.\n"
+        "Return your answer as a single JSON object whose keys are the column names "
+        "and whose values are the chosen semantic_type strings. "
+        "Output **nothing** except this JSON (don't include backticks or markdown tags) e.g., don't wrap the response inside ```json```"
+    )
+
+    lines = [header, ""]
+
+    for col in df.columns:
+        # Grab top-k frequent non-null values (as strings to avoid JSON issues)
+        top_vals = (
+            df[col]
+            .dropna()
+            .astype(str)
+            .value_counts()
+            .head(top_k)
+            .index
+            .tolist()
+        )
+        # Escape any double-quotes to keep the prompt valid
+        escaped = [v.replace('"', r"\"") for v in top_vals]
+        example_block = ", ".join(f'"{v}"' for v in escaped)
+        lines.append(f'{col} = [{example_block}]')
+
+    return "\n".join(lines)
