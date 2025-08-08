@@ -1,0 +1,36 @@
+{
+  "avg_salary_by_title": {
+    "job_title": "Occupational Job Title",
+    "avg_salary": "Average Annual Salary in USD"
+  },
+  "benefits_index": {
+    "job_title": "Occupational Job Title",
+    "benefits_score": "Employee Benefits Satisfaction Score"
+  },
+  "cost_of_living": {
+    "location": "US City and State",
+    "cost_of_living_index": "Cost of Living Index Value"
+  },
+  "crime_rates": {
+    "location": "US city with state abbreviation",
+    "crime_rate_per_1000": "crime rate per 1000 inhabitants"
+  },
+  "department_salary_summary": {
+    "department": "Municipal Department Name",
+    "avg_salary": "Average Annual Salary in USD",
+    "min_salary": "Minimum Annual Salary in USD",
+    "max_salary": "Maximum Annual Salary in USD"
+  },
+  "job_remote_percent": {
+    "job_title": "Occupation or Job Title",
+    "remote_percent": "Remote Work Percentage"
+  },
+  "job_satisfaction": {
+    "job_title": "Occupational Job Title",
+    "satisfaction_score_percent": "Employee Satisfaction Score Percentage"
+  },
+  "title_hierarchy": {
+    "job_title": "Occupational Job Title",
+    "seniority_level": "Employment Seniority Level"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "census_data": {
+    "country": "Country Name",
+    "pop_data": "Population in Millions",
+    "data_year": "Year of Data Collection",
+    "source": "Data Source Organization"
+  },
+  "climate_metrics": {
+    "country": "Country Name",
+    "temperature": "Temperature in Degrees Celsius"
+  },
+  "continent_gdp": {
+    "Continent": "Geopolitical Continent Name",
+    "GDP (in Trillions USD)": "Economic Output in Trillions of USD by Continent"
+  },
+  "continent_mapping": {
+    "country": "Country Name",
+    "continent": "Continent Name"
+  },
+  "country_currency_strength": {
+    "country": "Country Name",
+    "currency": "International Currency Code",
+    "currency_strength": "Currency Strength Index"
+  },
+  "currency": {
+    "country": "country_name",
+    "currency": "world_currency_name"
+  },
+  "economic_metrics": {
+    "country": "Country Name",
+    "inflation_rate_annual_percent": "Annual Inflation Rate Percentage"
+  },
+  "GDP_Per_Capita_Completed": {
+    "country": "Country Name",
+    "gdp (in trillions USD)": "GDP in Trillions USD",
+    "region": "Geographical Region",
+    "official_language": "Official Language(s)",
+    "internet_penetration": "Internet Penetration Rate (%)",
+    "currency": "Currency Code (ISO 4217)",
+    "population_millions": "Population in Millions",
+    "gdp_per_capita_usd": "GDP per Capita in USD"
+  },
+  "gini_index": {
+    "country": "Country Name",
+    "gini_coefficient": "Gini Coefficient Value"
+  },
+  "global_tourism": {
+    "country": "Country Name",
+    "tourism": "Annual Tourist Arrivals"
+  },
+  "health_indicators": {
+    "country": "Country Name",
+    "life_expectancy": "Average Life Expectancy in Years",
+    "healthcare_expenditures": "Annual Healthcare Expenditure per Capita in USD"
+  },
+  "literacy_rates": {
+    "country": "Country Name",
+    "literacy_rate": "Country Literacy Rate Percentage",
+    "data_source": "International Data Source Organization"
+  },
+  "renewable_energy": {
+    "country": "Country Name",
+    "renewable_energy_percent": "Percentage of Renewable Energy Usage",
+    "data_year": "Year of Data Collection",
+    "source": "Data Source Organization"
+  },
+  "tech_market_cap": {
+    "company": "Global Technology and Media Companies",
+    "market_cap_billion_usd": "Market Capitalization in Billion USD",
+    "headquarters": "Country of Headquarters",
+    "as_of_year": "Year of Financial Data"
+  },
+  "university_acceptance": {
+    "university": "world-renowned universities",
+    "acceptance_rate_percent": "university acceptance rate percentage",
+    "country": "country of university location",
+    "latest_data_year": "year of latest data"
+  }
+}
