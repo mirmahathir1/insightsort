@@ -12,39 +12,34 @@ Your task is to analyze this table and suggest **semantic sorting options**.
 
 ### Instructions:
 1. Identify which columns can be used to **semantically sort** the table (e.g., country, region, job_levels, company, etc). Use only the columns which are meaningful for semantic interpretation. Also, columns can be entities too, like companies, governments, schools, etc. 
-2. For each such column, generate minimum of 5 (if rich with attributes) and up to 7 **interesting and diverse** sort options, based on real-world attributes (e.g., for column 'country': GDP, population, life expectancy, etc). Ignore alphabetical or simple value-based sorting.
-3. Suggestions can involve **single or composite** attributes (e.g., "life expectancy + literacy rate").
-4. For each suggestion, provide:
-   - `column`: The **attribute name** used for sorting (e.g., GDP)
+2. For each such input column (base column), generate minimum of 5 (if rich with attributes) and up to 7 **interesting and diverse** sort options, based on real-world attributes (e.g., for column 'country': GDP, population, life expectancy, etc). Ignore alphabetical or simple value-based sorting.
+3. For each suggestion, provide:
+   - `column`: The single **attribute name** used for sorting that may or may not be present in the input table.
    - `description`: What insight the user gains from this sort
    - `interestingness`: A number between 0 and 1 estimating how insightful this sort might be
-   - `required_column`: The column(s) needed for this sort (e.g., "gdp", "life_expectancy, literacy_rate")
-   - `column present in the table`: "Yes" **only if** the required column(s) are present **and are usable directly with the base column** (i.e., sortable or groupable by it). Otherwise, say "No".
+   - `column present in the table`: "Yes" **only if** `column` is present in the input table. Otherwise, say "No".
 
 Respond ONLY and ONLY in the following JSON format (don't include backticks or markdown tags) e.g., don't wrap the response inside ```json```:
 
 {{
-  "country": [
+  "(base_column_1)": [
     {{
-      "column": "gdp",
-      "description": "Sort by GDP to understand the economic output of each country. Higher GDP often correlates with higher living standards.",
-      "required_column": "gdp (in trillions USD)",
-      "column present in the table": "Yes"
+      "column": "...",
+      "description": "...",
+      "column present in the table": "Yes"/"No"
     }},
     {{
-      "column": "life expectancy + literacy rate",
-      "description": "Sort by a composite view of human development using both life expectancy and literacy rate.",
-      "required_column": "life_expectancy, literacy_rate",
-      "column present in the table": "No"
-    }}
+      "column": "...",
+      "description": "...",
+      "column present in the table": "Yes"/"No"
+    }},
   ],
-  "region": [
+  "(base_column_2)": [
     {{
-      "column": "average gdp",
-      "description": "Sort by average GDP per region to compare economic strength.",
-      "required_column": "gdp (in trillions USD), region",
-      "column present in the table": "No"
-    }}
+      "column": "...",
+      "description": "...",
+      "column present in the table": "Yes"/"No"
+    }},
   ]
 }}
 

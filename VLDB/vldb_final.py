@@ -15,6 +15,7 @@ from semantic_score import (
     compute_semantic_interestingness,
     update_suggestions_with_semantic_scores,
 )
+from tqdm import tqdm
 
 # ───────────────────── Connections / Globals ─────────────────────────────────
 if "con" not in st.session_state:                # ① create once
@@ -263,7 +264,9 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
 
             with st.spinner("Thinking of smart ways to sort your table..."):
                 prompt = build_suggestion_prompt(sample_rows, column_names)
+                print("calling GPT")
                 gpt_response = call_gpt(prompt)
+                print("calling GPT ended")
                 suggestions = parse_suggestion(gpt_response)
                 st.session_state.sorting_suggestions = suggestions
 
@@ -281,7 +284,7 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
                     pprint.pprint(suggestions)
 
                     for base_col, sort_list in suggestions.items():
-                        for s in sort_list:
+                        for s in tqdm(sort_list):
                             sort_attr   = s["column"]
                             col_present = s["column present in the table"] == "Yes"
 
@@ -308,7 +311,7 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
                                 "Sort Attribute":  sort_attr,
                                 "Description":     s["description"],
                                 "Interestingness": s.get("interestingness", ""),
-                                "Required Column": s["required_column"],
+                                "Required Column": s["column"],
                                 "Column present":  "Yes" if col_present else "No",
                             })
 
