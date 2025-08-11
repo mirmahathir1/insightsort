@@ -1,8 +1,8 @@
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
-from prompts import compute_semantic_utility_prompt
-from llm_utils import call_gpt
-from embedding_utils import embed_text
+from algorithms.prompts import compute_semantic_utility_prompt
+from algorithms.llm_utils import call_gpt
+from algorithms.embedding_utils import embed_text
 
 def compute_column_uniqueness(input_columns: list[str], candidate_columns: list[str]) -> float:
     input_embeddings = [embed_text(col) for col in input_columns if embed_text(col) is not None]

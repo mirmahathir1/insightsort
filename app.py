@@ -7,11 +7,11 @@ import streamlit as st
 import pandas as pd
 import duckdb
 import pprint
-from prompts import build_suggestion_prompt, generate_augmented_sql_prompt
-from llm_utils import call_gpt, parse_suggestion
-from index_builder import build_indexes_from_datalake, load_indexes
-from join_discovery import discover_augmentable_column
-from semantic_score import (
+from algorithms.prompts import build_suggestion_prompt, generate_augmented_sql_prompt
+from algorithms.llm_utils import call_gpt, parse_suggestion
+from algorithms.index_builder import build_indexes_from_datalake, load_indexes
+from algorithms.join_discovery import discover_augmentable_column
+from algorithms.semantic_score import (
     compute_semantic_interestingness,
     update_suggestions_with_semantic_scores,
 )

@@ -2,7 +2,9 @@
   "exclude": [
     "llmcache",
     "datalakes",
-    "archive"
+    "archive",
+    ".vscode",
+    "__pycache__"
   ],
   "typeCheckingMode": "off"
 }

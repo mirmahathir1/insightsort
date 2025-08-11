@@ -3,10 +3,11 @@ import os
 import numpy as np
 import pickle
 import pandas as pd
-from embedding_utils import embed_column_values, embed_column_semantic_type
-import prompts
-import llm_utils
-import semantic_type
+from algorithms.embedding_utils import embed_column_values, embed_column_semantic_type, embed_text
+from algorithms import prompts
+from algorithms import llm_utils
+from algorithms import semantic_type
+from datasketch import MinHash
 import json
 
 class HNSWIndex:
@@ -101,6 +102,64 @@ def _build_semantic_index(datalake: dict[str, pd.DataFrame], save_dir: str, *,
     if verbose:
         print(f"💾 Saved semantic index → {sem_dir}")
 
+def _build_semantic_type_hnsw_index(save_dir: str, *,
+                          force: bool = False, verbose: bool = True) -> None:
+    sem_dir = os.path.join(save_dir, "semantic_type_index")
+    os.makedirs(sem_dir, exist_ok=True)
+    prefix = os.path.join(sem_dir, "index")             # -> index.bin / index_meta.pkl
+
+    if (not force
+        and os.path.exists(prefix + ".bin")
+        and os.path.exists(prefix + "_meta.pkl")):
+        if verbose:
+            print("✅ Semantic type hnsw index already exists. Skipping.")
+        return
+
+    sem_vectors, sem_meta = [], []
+    semantic_types = json.load(open(os.path.join(sem_dir, "types.json"), "r", encoding="utf-8"))
+
+    for table, columns in semantic_types.items():
+        for col, sem_type in columns.items():
+            vec = embed_text(sem_type)
+            sem_vectors.append(vec)
+            sem_meta.append((table, col))
+
+    idx = HNSWIndex(dim=sem_vectors[0].shape[0])
+    idx.build(sem_vectors, sem_meta)
+    idx.save(prefix)
+    if verbose:
+        print(f"💾 Saved semantic index → {sem_dir}")
+
+def get_minhashes(table, dataframe):
+    col_min_hash = []
+    columns = []
+    for column in dataframe.columns:
+        col_min_hash += [(column,MinHash())]
+        columns += ["\"" + column + "\""]
+
+    for row_index, row in dataframe.iterrows():
+        for index in range(len(row)):
+            if pd.notna(row[index]):
+                col_min_hash[index][1].update(str(row[index]).encode('utf8'))
+    column_minhashes = {}
+    for single_col_hash in col_min_hash:
+        column_name = single_col_hash[0]
+        minhash = single_col_hash[1]
+        column_minhashes[column_name] = minhash
+    return {table: column_minhashes}
+
+def _build_minhashes(datalake: dict[str, pd.DataFrame], save_dir: str):
+    column_minhashes = {}
+    for table, df in datalake.items():
+        column_minhashes.update(get_minhashes(table, df))
+
+    minhash_dir = os.path.join(save_dir, "minhashes")
+    os.makedirs(minhash_dir, exist_ok=True)
+    minhash_path = os.path.join(minhash_dir, "minhashes.pickle")
+    with open(minhash_path, "wb") as f:
+        pickle.dump(column_minhashes, f)
+    print(f"💾 Saved minhashes → {minhash_path}")
+
 def _build_semantic_type_index(
     datalake: dict[str, pd.DataFrame],
     save_dir: str,
@@ -146,9 +205,12 @@ def load_indexes(index_dir: str, dim: int = 384):
     join_prefix = os.path.join(index_dir, "joinability_index", "index")
     sem_prefix  = os.path.join(index_dir, "semantic_index",     "index")
     type_path   = os.path.join(index_dir, "semantic_type_index", "types.json")
+    semantic_type_hnsw_path = os.path.join(index_dir, "semantic_type_index", "index")
+    minhash_path = os.path.join(index_dir, "minhashes", "minhashes.pickle")
 
     join_index = HNSWIndex(dim=dim); join_index.load(join_prefix)
     semantic_index = HNSWIndex(dim=dim); semantic_index.load(sem_prefix)
+    semantic_type_hnsw_index = HNSWIndex(dim=dim); semantic_type_hnsw_index.load(semantic_type_hnsw_path)
 
     if os.path.exists(type_path):
         with open(type_path, "r", encoding="utf-8") as f:
@@ -156,7 +218,17 @@ def load_indexes(index_dir: str, dim: int = 384):
     else:
         semantic_types = {}
 
-    return join_index, semantic_index, semantic_types
+    if os.path.exists(minhash_path):
+        with open(minhash_path, "rb") as f:
+            minhashes = pickle.load(f)
+        if not isinstance(minhashes, dict):
+            raise ValueError("Minhashes should be a dictionary of {table: {column: MinHash}}")
+    else:
+        raise FileNotFoundError(f"Minhashes file not found at {minhash_path}")
+
+    
+
+    return join_index, semantic_index, semantic_types, minhashes, semantic_type_hnsw_index
 
 
 def build_indexes_from_datalake(datalake: dict[str, pd.DataFrame], save_dir: str,
@@ -166,4 +238,6 @@ def build_indexes_from_datalake(datalake: dict[str, pd.DataFrame], save_dir: str
     _build_join_index(datalake, save_dir, force=force, verbose=verbose)
     _build_semantic_index(datalake, save_dir, force=force, verbose=verbose)
     _build_semantic_type_index(datalake, save_dir, force=force, verbose=verbose)
+    _build_semantic_type_hnsw_index(save_dir, force=force, verbose=verbose)
+    _build_minhashes(datalake, save_dir)
 
