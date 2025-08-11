@@ -273,7 +273,7 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
                 if st.session_state.sorting_suggestions:
                     # ─── Load/calc indexes once ──────────────────────────────────────────────
                     if "join_index" not in st.session_state or "semantic_index" not in st.session_state:
-                        st.session_state.join_index, st.session_state.semantic_index, st.session_state.semantic_types = load_indexes(st.session_state.index_dir)
+                        st.session_state.join_index, st.session_state.semantic_index, st.session_state.semantic_types, st.session_state.minhashes, st.session_state.semantic_type_hnsw_index = load_indexes(st.session_state.index_dir)
 
                     # ─── Cache for aug-info across clicks ────────────────────────────────────
                     if "augmentation_cache" not in st.session_state:
@@ -296,6 +296,9 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
                                     st.session_state.semantic_index,
                                     st.session_state.join_index,
                                     st.session_state.semantic_types,
+                                    st.session_state.minhashes,
+                                    st.session_state.semantic_type_hnsw_index,
+                                    base_col,
                                     5
                                 )
                                 if aug is None:
@@ -499,7 +502,7 @@ if st.session_state.show_sql_result and st.session_state.confirmed_sort_option a
 
     with col_exp2:
         if st.session_state.augment_data_clicked:
-            join_index, semantic_index, semantic_types = load_indexes(st.session_state.index_dir)
+            join_index, semantic_index, semantic_types, minhashes, semantic_type_hnsw_index = load_indexes(st.session_state.index_dir)
 
             row_key = (base_col, sort_attr)
             augment_data = st.session_state.augmentation_cache.get(row_key)
@@ -633,9 +636,9 @@ if st.session_state.show_sql_result and st.session_state.confirmed_sort_option a
                         print(traceback.format_exc())  # or st.text()
 
     if st.session_state.augment_data_clicked:
-        join_index, semantic_index, semantic_types = load_indexes(st.session_state.index_dir)
+        join_index, semantic_index, semantic_types, minhashes, semantic_type_hnsw_index = load_indexes(st.session_state.index_dir)
 
-        augment_data = discover_augmentable_column(sort_attr, st.session_state.uploaded_table, st.session_state.data_lake, semantic_index, join_index, semantic_types, 5)
+        augment_data = discover_augmentable_column(sort_attr, st.session_state.uploaded_table, st.session_state.data_lake, semantic_index, join_index, semantic_types, minhashes, semantic_type_hnsw_index, base_col, 5)
         
         if st.session_state.apply_augmentation_clicked:
             if augment_data is not None:
