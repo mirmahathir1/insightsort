@@ -75,7 +75,7 @@ import pandas as pd
 from numpy.linalg import norm
 from algorithms import prompts
 from algorithms import llm_utils
-from algorithms import semantic_type
+from algorithms import semantic_type_extractor
 
 # ------------------------------------------------------------------
 def _cosine_distance(a: np.ndarray, b: np.ndarray, eps: float = 1e-9) -> float:
@@ -102,29 +102,13 @@ def _cosine_distance(a: np.ndarray, b: np.ndarray, eps: float = 1e-9) -> float:
     return float(np.clip(dist, 0.0, 1.0))
 # ------------------------------------------------------------------
 
-def infer_semantic_types_for_df(df: pd.DataFrame) -> Dict[str, str]:
-    """
-    Return a mapping  {column_name → semantic_type_text}  for *df*.
 
-    It mirrors the logic in `_build_semantic_type_index` but keeps everything
-    in-memory (no disk I/O):
-
-      1. Builds a prompt with `prompts.generate_semantic_type_prompt`.
-      2. Calls the LLM.
-      3. Parses the JSON payload the model returns.
-      4. Aligns keys back to the *exact* column names (difflib).
-
-    Every column is guaranteed to appear exactly once in the result.
-    """
-    prompt        = prompts.generate_semantic_type_prompt(df)
-    gpt_response  = llm_utils.call_gpt(prompt) or "{}"
-    raw           = llm_utils.parse_suggestion(gpt_response)
-    aligned_types = semantic_type.align_semantic_types(raw, df)
-    return aligned_types
 
 def discover_augmentable_column(
     suggested_attribute: str,
     input_table: pd.DataFrame,
+    input_table_minhash,
+    input_table_semantic_type_embeddings,
     datalake: Dict[str, pd.DataFrame],
     semantic_index,
     join_index,
@@ -132,78 +116,95 @@ def discover_augmentable_column(
     minhashes,
     semantic_type_hnsw_index,
     base_col,
-    top_k: int = 5,
+    top_k,
+    min_joinability_distance_threshold
 ) -> Optional[Dict[str, Any]]:
     '''Try to find joinable column in the datalake that provides the suggested attribute'''
 
-    semantic_distance_threshold_for_datalake_column_mapping = 0.4
+    # semantic_distance_threshold_for_datalake_column_mapping = 0.4
+    # cosine_distance_threshold_for_existing_column_mapping = 0.2
+    # min_joinability_distance_threshold = 0.1
+
+    semantic_distance_threshold_for_datalake_column_mapping = 0.9
     cosine_distance_threshold_for_existing_column_mapping = 0.2
-    min_joinability_distance_threshold = 0.1
+    
 
-    input_table_semantic_types = infer_semantic_types_for_df(df=input_table)
+    # semantic_matches = semantic_index.query(embed_text(suggested_attribute), k = top_k)
+    semantic_matches = semantic_type_hnsw_index.query(embed_text(suggested_attribute), k=top_k)
 
-    input_table_semantic_type_embeddings = {}
-    for column in input_table.columns:
-        input_table_semantic_type_embeddings[column] = embed_text(input_table_semantic_types[column])
 
-    semantic_matches = semantic_index.query(embed_text(suggested_attribute), k = top_k)
-    # semantic_matches = semantic_type_hnsw_index.query(embed_text(suggested_attribute), k=top_k)
+    input_table_base_col_minhash = input_table_minhash[base_col]
 
-    input_table_minhashes = index_builder.get_minhashes("input_table", input_table)["input_table"]
-    input_table_base_col_minhash = input_table_minhashes[base_col]
+    # _, _, input_table_base_col_minhash = index_builder.get_column_minhash(('input_table', base_col, input_table[base_col]), {"num_perm": 128, "seed": 1}, None)
 
     for (table_name, attr_col), sem_dist in semantic_matches:
-        if sem_dist < semantic_distance_threshold_for_datalake_column_mapping:
-            datalake_table = datalake.get(table_name)
-            if datalake_table is None:
-                continue
+        if sem_dist > semantic_distance_threshold_for_datalake_column_mapping:
+            # print(f"Semantic distance {sem_dist} exceeds threshold for {table_name}.{attr_col}.")
+            continue
+        datalake_table = datalake.get(table_name)
+        if datalake_table is None:
+            print(f"Table {table_name} not found in datalake.")
+            exit(0)
 
-            attr_col_sem_type_embedding = embed_text(semantic_type_index[table_name][attr_col])
-            column_already_exists = False
-            for input_col_name, input_col_embedding in input_table_semantic_type_embeddings.items():
-                cosine_distance = _cosine_distance(attr_col_sem_type_embedding, input_col_embedding)
-                if cosine_distance < cosine_distance_threshold_for_existing_column_mapping:
-                    column_already_exists = True
-                    break
-            if column_already_exists:
-                print(f"column already exists: new column - {table_name}.{attr_col}, already existing column - {input_col_name}")
-                continue
+        attr_col_sem_type_embedding = embed_text(semantic_type_index[table_name][attr_col])
+        column_already_exists = False
+        for input_col_name, input_col_embedding in input_table_semantic_type_embeddings.items():
+            cosine_distance = _cosine_distance(attr_col_sem_type_embedding, input_col_embedding)
+            if cosine_distance < cosine_distance_threshold_for_existing_column_mapping:
+                column_already_exists = True
+                # print(f"column already exists: new column - {table_name}.{attr_col}, already existing column - {input_col_name}")
+                # print("input column semantic type: ", input_table_semantic_types[input_col_name])
+                # print("datalake column semantic type: ", semantic_type_index[table_name][attr_col])
+                # print("cosine distance: ", cosine_distance)
+                break
 
-            input_vals = input_table[base_col].dropna().unique().tolist()
-            if not input_vals:
-                continue
-            
-            join_vector = embed_column_values(input_vals)
-            if join_vector is None:
-                continue
+        if column_already_exists:
+            continue
 
-            min_joinability_distance = 1
-            best_datalake_join_key = None
+        input_vals = input_table[base_col].dropna().unique().tolist()
+        if not input_vals:
+            # print(f"No valid values found in input column {base_col}.")
+            continue
+
+        min_joinability_distance = 1
+        best_datalake_join_key = None
+        try:
             for col, minhash in minhashes[table_name].items():
                 jaccard = input_table_base_col_minhash.jaccard(minhash)
                 joinability_distance = 1 - jaccard
                 if joinability_distance < min_joinability_distance:
                     min_joinability_distance = joinability_distance
                     best_datalake_join_key = col
+        except KeyError:
+            print(f"KeyError: {table_name} not found in minhashes.")
+            print(f"Available keys: {list(minhashes.keys())}")
+            exit(0)
 
-            if best_datalake_join_key is None:
-                continue
+        if best_datalake_join_key is None:
+            # print(f"No suitable join key found in {table_name} for {base_col}.")
+            continue
 
-            if min_joinability_distance > min_joinability_distance_threshold:
-                continue
+        if min_joinability_distance > min_joinability_distance_threshold:
+            # print(f"Joinability distance {min_joinability_distance} exceeds threshold for {table_name}.{attr_col}.")
+            continue
 
-            joinable_path = {
-                "suggested_attribute": suggested_attribute,
-                "matched_table": table_name,
-                "matched_column": attr_col,
-                "join_key_input": base_col,
-                "join_key_datalake": best_datalake_join_key,
-                "semantic_distance": sem_dist,
-                "join_distance": min_joinability_distance
-            }
+        if best_datalake_join_key == attr_col:
+            # print(f"Join key {best_datalake_join_key} matches the suggested attribute {attr_col} in {table_name}.")
+            continue
 
-            # Found joinable path
-            return joinable_path
+        joinable_path = {
+            "suggested_attribute": suggested_attribute,
+            "matched_table": table_name,
+            "matched_column": attr_col,
+            "join_key_input": base_col,
+            "join_key_datalake": best_datalake_join_key,
+            "semantic_distance": sem_dist,
+            "join_distance": min_joinability_distance
+        }
 
+        # Found joinable path
+        return joinable_path
+            
+    # print("_" * 80)
     # Nothing suitable found
     return None

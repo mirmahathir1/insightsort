@@ -3,8 +3,10 @@ import json
 import hashlib
 from pathlib import Path
 import openai                         # make sure openai‑python is installed
+import re
 
-openai.api_key = 'sk-proj-zvfr2IvWfqEUqsnmwIBJT3BlbkFJMxh6YiSgfcG6vEcMGJ35'  # ← ideally load from env
+# openai.api_key = 'sk-proj-zvfr2IvWfqEUqsnmwIBJT3BlbkFJMxh6YiSgfcG6vEcMGJ35'  # ← ideally load from env
+openai.api_key = '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'
 
 CACHE_DIR = Path("llmcache")
 CACHE_DIR.mkdir(exist_ok=True)        # create if it doesn’t exist
@@ -19,7 +21,7 @@ def _cache_path(prompt: str) -> Path:
     return CACHE_DIR / f"{digest}.json"
 
 
-def call_gpt(prompt: str, model: str = "gpt-4o", temperature: float = 0.4) -> str:
+def call_gpt(prompt: str, model: str = "gpt-5", temperature: float = 1) -> str:
     """
     Return GPT response, using a disk cache keyed by the full prompt text.
     """
@@ -61,6 +63,22 @@ def parse_suggestion(gpt_output):
         print("Failed to parse GPT output.")
         return {}
 
+def extract_json_object(text: str):
+    """
+    Extracts the first valid JSON object or array from a string and returns it as a Python object.
+    Raises ValueError if no valid JSON is found.
+    """
+    # Regex to match JSON objects or arrays
+    json_pattern = re.compile(r'(\{.*\}|\[.*\])', re.DOTALL)
+
+    matches = json_pattern.findall(text)
+    for match in matches:
+        try:
+            return json.loads(match)
+        except json.JSONDecodeError:
+            continue  # Try the next match if parsing fails
+
+    raise ValueError("No valid JSON object found in the input string.")
 
 
 

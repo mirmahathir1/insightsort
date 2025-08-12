@@ -1,23 +1,38 @@
-def build_suggestion_prompt(sample_rows, column_names):
-    formatted_rows = "\n".join([str(row) for row in sample_rows])
+def build_suggestion_prompt(input_table, column_names, other_table_descriptions):
+    # Get the most frequent 5 values for each column in input_table
+    input_table_string = ""
+    for col in column_names:
+        most_frequent_values = input_table[col].dropna().value_counts().head(5).index.tolist()
+        
+        input_table_string += f"column {col}: {', '.join(map(str, most_frequent_values))}\n"
+
+    other_table_descriptions_string = ""
+    for table_name, description in other_table_descriptions.items():
+        other_table_descriptions_string += f"{table_name}: {description}\n"
+
     return f"""
 You are a smart data assistant. A user has uploaded a table with the following columns:
 
 {column_names}
 
-Here are a few sample rows from the table:
-{formatted_rows}
+Here are the columns of the uploaded table with a sample of values:
+{input_table_string}
 
 Your task is to analyze this table and suggest **semantic sorting options**.
 
 ### Instructions:
-1. Identify which columns can be used to **semantically sort** the table (e.g., country, region, job_levels, company, etc). Use only the columns which are meaningful for semantic interpretation. Also, columns can be entities too, like companies, governments, schools, etc. 
-2. For each such input column (base column), generate minimum of 5 (if rich with attributes) and up to 7 **interesting and diverse** sort options, based on real-world attributes (e.g., for column 'country': GDP, population, life expectancy, etc). Ignore alphabetical or simple value-based sorting.
-3. For each suggestion, provide:
-   - `column`: The single **attribute name** used for sorting that may or may not be present in the input table.
+1. Identify which columns can be used to **semantically sort** the table (e.g., country, region, job_levels, company, etc). Use only the columns which are meaningful for semantic interpretation.
+2. For each such input column (base column), generate **interesting and diverse** sort options, based on real-world attributes (e.g., for column 'country': GDP, population, life expectancy, etc). Ignore alphabetical or simple value-based sorting.
+3. The suggestions must come from the tables provided in the `other_table_descriptions` section, which contains attributes that can be used for sorting.
+4. For each suggestion, provide:
+   - `column`: The single **attribute name** used for sorting that may or may not be present in the input table. The name should not follow any variable naming conventions (e.g., no underscores, camelCase, etc). Use natural language names.
+   - `table`: The name of the table from which this attribute comes (e.g., "world_data", "company_info", etc).
    - `description`: What insight the user gains from this sort
    - `interestingness`: A number between 0 and 1 estimating how insightful this sort might be
    - `column present in the table`: "Yes" **only if** `column` is present in the input table. Otherwise, say "No".
+5. Do not add sorting options that represent boolean status, codes of entities, dates, or other non-semantic attributes. The sorting options should be rich in attributes that provide meaningful insights.
+6. You may only add categorical columns as sorting options where the values have a **natural order** (e.g., "low", "medium", "high").
+7. You may add numerical sorting options where the values are **meaningful** (e.g., "GDP", "population", "cost of living index").
 
 Respond ONLY and ONLY in the following JSON format (don't include backticks or markdown tags) e.g., don't wrap the response inside ```json```:
 
@@ -25,25 +40,36 @@ Respond ONLY and ONLY in the following JSON format (don't include backticks or m
   "(base_column_1)": [
     {{
       "column": "...",
+      "table": "...",
       "description": "...",
+      "interestingness": 0.0-1.0,
       "column present in the table": "Yes"/"No"
     }},
     {{
       "column": "...",
+      "table": "...",
       "description": "...",
+      "interestingness": 0.0-1.0,
       "column present in the table": "Yes"/"No"
     }},
   ],
   "(base_column_2)": [
     {{
       "column": "...",
+      "table": "...",
       "description": "...",
+      "interestingness": 0.0-1.0,
       "column present in the table": "Yes"/"No"
     }},
   ]
 }}
 
 Only include columns that are **meaningful to semantically sort**. Do not make up data that contradicts the sample rows. The goal is to suggest intelligent, real-world-based ways to sort the table.
+
+`other_table_descriptions`:
+
+{other_table_descriptions_string}
+
 """
 
 
@@ -71,22 +97,147 @@ Return only a decimal number between 0 and 1, without explanation.
 
 
 
-def generate_augmented_sql_prompt(input_cols, datalake_table_name, join_key_input, join_key_datalake, sort_col):
+# def generate_augmented_sql_prompt(input_cols, datalake_table_name, join_key_input, join_key_datalake, sort_col):
+#     return f"""
+# You are given:
+# - An input table named `input_table` with the following columns: {input_cols}
+# - A data lake table named `{datalake_table_name}`
+
+# Your task is to:
+# 1. Perform an inner join between `input_table` and `{datalake_table_name}` using:
+#    - `input_table.{join_key_input}` = `{datalake_table_name}.{join_key_datalake}`
+# 2. Return all columns from `input_table`, and the column `{sort_col}` from `{datalake_table_name}`
+# 3. Sort the final result in descending order based on `{datalake_table_name}.{sort_col}`
+# 4. Ensure all column references in the SELECT, JOIN, and ORDER BY clauses are fully qualified using table names
+# 5. Wrap column names that contain spaces or special characters in double quotes, e.g., "cost of living index"
+
+# Output only the SQL query — no explanations, no markdown, and no extra formatting.
+# """    
+
+# def generate_augmented_sql_prompt(input_cols, datalake_table_name, join_key_input, join_key_datalake, sort_cols):
+#     """
+#     sort_cols can be a single column name (str) or a list/tuple of column names.
+#     """
+#     if isinstance(sort_cols, (list, tuple)):
+#         sort_cols_text = ", ".join(sort_cols)
+#     else:
+#         sort_cols_text = str(sort_cols)
+
+#     return f"""
+# You are given:
+# - An input table named `input_table` with the following columns: {input_cols}
+# - A data lake table named `{datalake_table_name}`
+
+# Your task is to:
+# 1. Perform an INNER JOIN between `input_table` and `{datalake_table_name}` using:
+#    - `input_table.{join_key_input}` = `{datalake_table_name}.{join_key_datalake}`
+# 2. Return ONLY the following columns:
+#    - `input_table.{join_key_input}`
+#    - `{datalake_table_name}.{join_key_datalake}`
+#    - `{datalake_table_name}.{sort_cols_text}`  (if multiple, include all of them)
+# 3. Discard duplicate rows by using SELECT DISTINCT over the projected columns.
+# 4. Sort the final result in descending order by `{datalake_table_name}.{sort_cols_text}`.
+#    - If multiple sort attributes are provided, sort by them in the given order, all DESC.
+# 5. Ensure all column references in SELECT, JOIN, and ORDER BY clauses are fully qualified with table names.
+# 6. Wrap column names that contain spaces or special characters in double quotes, e.g., "cost of living index".
+
+# Output only the SQL query — no explanations, no markdown, no extra formatting and no ```sql annotation.
+# """
+
+def generate_augmented_sql_prompt(input_cols, datalake_table_name, join_key_input, join_key_datalake, sort_cols):
+    """
+    sort_cols can be a single column name (str) or a list/tuple of column names.
+    """
+    if isinstance(sort_cols, (list, tuple)):
+        sort_cols_text = ", ".join(sort_cols)
+    else:
+        sort_cols_text = str(sort_cols)
+
     return f"""
 You are given:
 - An input table named `input_table` with the following columns: {input_cols}
 - A data lake table named `{datalake_table_name}`
 
 Your task is to:
-1. Perform an inner join between `input_table` and `{datalake_table_name}` using:
+1. Perform an INNER JOIN between `input_table` and `{datalake_table_name}` using:
    - `input_table.{join_key_input}` = `{datalake_table_name}.{join_key_datalake}`
-2. Return all columns from `input_table`, and the column `{sort_col}` from `{datalake_table_name}`
-3. Sort the final result in descending order based on `{datalake_table_name}.{sort_col}`
-4. Ensure all column references in the SELECT, JOIN, and ORDER BY clauses are fully qualified using table names
-5. Wrap column names that contain spaces or special characters in double quotes, e.g., "cost of living index"
+2. Return ONLY the following columns:
+   - `input_table.{join_key_input}`
+   - `{datalake_table_name}.{sort_cols_text}`  (if multiple, include all of them)
+3. Discard duplicate rows by using SELECT DISTINCT over the projected columns.
+4. Sort the final result in descending order by `{datalake_table_name}.{sort_cols_text}`.
+   - If multiple sort attributes are provided, sort by them in the given order, all DESC.
+5. Ensure all column references in SELECT, JOIN, and ORDER BY clauses are fully qualified with table names.
+6. Wrap column names that contain spaces or special characters in double quotes, e.g., "cost of living index".
 
-Output only the SQL query — no explanations, no markdown, and no extra formatting.
-"""    
+Output only the SQL query — no explanations, no markdown, no extra formatting and no ```sql annotation.
+"""
+
+def build_augmented_sql(datalake_table_name, join_key_input, join_key_datalake, sort_cols):
+    """
+    Return a SQL string that:
+      - INNER JOINs input_table to the given data-lake table
+      - SELECT DISTINCTs only input_table.join_key_input and the specified data-lake sort columns
+      - ORDER BY all sort columns in DESC order (in the given order)
+      - Fully qualifies all columns and quotes identifiers with spaces/special chars
+    """
+
+    import re
+
+    def q_ident(ident: str) -> str:
+        """Quote an identifier if it has spaces/special chars or starts with a digit."""
+        ident = str(ident)
+        if ident.startswith('"') and ident.endswith('"'):
+            return ident  # already quoted
+        return ident if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', ident) else f'"{ident}"'
+
+    def q_table(tname: str) -> str:
+        """Quote each part of a possibly qualified table name like schema.table."""
+        parts = [p.strip() for p in str(tname).split('.')]
+        return '.'.join(q_ident(p) for p in parts)
+
+    # normalize sort_cols
+    if isinstance(sort_cols, (list, tuple)):
+        sort_list = [str(c) for c in sort_cols if str(c).strip() != ""]
+    else:
+        sort_list = [str(sort_cols)]
+
+    if not sort_list:
+        raise ValueError("sort_cols must contain at least one column name.")
+
+    t_dl = q_table(datalake_table_name)
+    jk_input = q_ident(join_key_input)
+    jk_dl    = q_ident(join_key_datalake)
+
+    select_cols = [f"input_table.{jk_input}"] + [f"{t_dl}.{q_ident(c)}" for c in sort_list]
+    order_by    = ", ".join(f"{t_dl}.{q_ident(c)} DESC" for c in sort_list)
+
+    sql = (
+        "SELECT DISTINCT\n  "
+        + ",\n  ".join(select_cols)
+        + "\nFROM input_table\n"
+        f"INNER JOIN {t_dl}\n"
+        f"  ON input_table.{jk_input} = {t_dl}.{jk_dl}\n"
+        f"ORDER BY {order_by};"
+    )
+    return sql
+
+
+def generate_single_table_sql_prompt(input_cols, required_col, description, base_col):
+    return f"""
+    Given a table with the following columns: {input_cols}
+    Write an SQL query that sorts this table by {required_col} in descending order, assuming that column exists in the table and is aligned with {base_col}.
+
+    Here is what's exactly needed:
+    - The SQL query should sort the **entire table** according to this: {description}
+    - You may need to use GROUP BY, ORDER BY, OVER(), or any SQL techniques as needed.
+    - Ensure the final output includes **all original table columns plus any derived column** used in ORDER BY.
+    - Do not return a partial subset of the table — return a **fully sorted version of the input table with the sorting column visible.**
+    - If any column name contains spaces or special characters, wrap it in **double quotes** (e.g., "gdp (in trillions USD)").
+    - Table name is 'input_table'
+
+    Return only the SQL query — no explanations or markdown formatting. Also don't include it in backticks.
+    """.strip()
 
 import pandas as pd
 
@@ -110,7 +261,7 @@ def generate_semantic_type_prompt(df: pd.DataFrame, top_k: int = 20) -> str:
     header = (
         "You are a semantic-typing assistant.\n"
         "For each column below, infer an elaborate semantic_type "
-        "e.g. detailed elaborate name.\n"
+        "e.g. detailed elaborate name (without any underscores, put necessary spaces and no camel case).\n"
         f"Base your decision **only** on the top {top_k} most-frequent values provided.\n"
         "Return your answer as a single JSON object whose keys are the column names "
         "and whose values are the chosen semantic_type strings. "
@@ -136,3 +287,110 @@ def generate_semantic_type_prompt(df: pd.DataFrame, top_k: int = 20) -> str:
         lines.append(f'{col} = [{example_block}]')
 
     return "\n".join(lines)
+
+def build_ordinal_ordering_prompt(column_name, unique_values):
+    """
+    Creates a prompt for ChatGPT to determine if a categorical column has an inherent ordering.
+
+    Args:
+        column_name (str): The name of the column.
+        unique_values (list[str]): A list of unique categorical values from the column.
+
+    Returns:
+        str: A formatted prompt string for the ChatGPT API.
+    """
+    values_str = ", ".join(f"'{v}'" for v in unique_values)
+    return f"""
+You are given the name of a database column and its unique categorical values.
+
+Column name: {column_name}
+Unique values: [{values_str}]
+
+Your task:
+1. Determine if these categorical values have an **inherent ordinal ordering** 
+   (e.g., 'Small' < 'Medium' < 'Large' or 'Beginner' < 'Intermediate' < 'Advanced').
+2. If an ordinal ordering exists, output a JSON object with:
+   - "can_order": true
+   - "order": an array of values in their correct order from lowest to highest.
+3. If no clear inherent ordering exists, output a JSON object with:
+   - "can_order": false
+   - "order": []
+
+Rules:
+- Do not guess unless there is a clear, justifiable ordering that would be commonly understood.
+- Preserve the exact string values as given (case-sensitive, no trimming).
+- The JSON must be valid and nothing else should be output.
+
+Example output when ordering is possible:
+{{
+  "can_order": true,
+  "order": ["Admission Candidate", "Freshman", "Senior", "Graduated"]
+}}
+
+Example output when ordering is not possible:
+{{
+  "can_order": false,
+  "order": []
+}}
+"""
+
+import math
+import json
+import pandas as pd
+
+
+def build_table_description_prompt(
+    df: pd.DataFrame,
+    table_name: str,
+    *,
+    top_k: int = 3,
+    max_value_len: int = 40,
+) -> str:
+    """
+    Return a triple-quoted prompt string for ChatGPT to generate a single-line description of a table.
+    """
+
+    def _safe_str(x) -> str:
+        if x is None or (isinstance(x, float) and math.isnan(x)):
+            return ""
+        s = str(x).replace("\n", " ").replace("\r", " ").strip()
+        return (s[: max_value_len - 1] + "…") if len(s) > max_value_len else s
+
+    preview: dict[str, list[str]] = {}
+    for col in df.columns:
+        ser_str = df[col].dropna().astype(str)
+        if ser_str.empty:
+            preview[col] = []
+            continue
+        top_vals = ser_str.value_counts().head(top_k).index.tolist()
+        preview[col] = [_safe_str(v) for v in top_vals]
+
+    preview_block = json.dumps(
+        {
+            "table_name": table_name,
+            "columns": list(df.columns),
+            "top_values_per_column": preview,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+    return f"""
+You are given metadata about a database table and some sample values. 
+Write a concise, single-sentence description of what this table represents and the kind of data it contains. 
+Focus on meaning, not internal pipeline details. 
+Avoid listing every column; summarize the table's purpose and typical content in one line.
+
+TABLE CONTEXT (JSON): {preview_block}
+
+Output format (strict JSON):
+{{
+  "table": "{table_name}",
+  "description": "<one-line description>"
+}}
+
+Requirements:
+- The JSON must be valid and on its own (no extra text before/after).
+- "description" must be a single line (no newlines), <= 200 characters if possible.
+- Do NOT invent columns that are not present; use the provided context.
+"""

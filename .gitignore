@@ -2,4 +2,6 @@ index_files
 .streamlit
 __pycache__
 test_indexes
-llmcache
+llmcache*
+datalakes/mitdwh_datalake
+results

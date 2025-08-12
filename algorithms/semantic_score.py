@@ -3,6 +3,7 @@ import numpy as np
 from algorithms.prompts import compute_semantic_utility_prompt
 from algorithms.llm_utils import call_gpt
 from algorithms.embedding_utils import embed_text
+from tqdm import tqdm
 
 def compute_column_uniqueness(input_columns: list[str], candidate_columns: list[str]) -> float:
     input_embeddings = [embed_text(col) for col in input_columns if embed_text(col) is not None]
@@ -28,6 +29,7 @@ def compute_semantic_utility(input_columns: list[str], candidate_columns: list[s
         return float(response.strip())  
     except:
         print("\u26a0\ufe0f Could not parse semantic utility score:", response)
+        exit(0)
         return 0.0
     
 
@@ -39,7 +41,7 @@ def compute_semantic_interestingness(input_columns: list[str], candidate_colums:
 
 def update_suggestions_with_semantic_scores(df, input_columns):
     scores = []
-    for _, row in df.iterrows():
+    for _, row in tqdm(list(df.iterrows())):
         candidate_column = row["Sort Attribute"]
         candidate_columns = [col.strip() for col in str(row["Required Column"]).split(",")]
         score = compute_semantic_interestingness(input_columns, candidate_columns)
