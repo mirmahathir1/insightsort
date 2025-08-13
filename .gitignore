@@ -5,3 +5,5 @@ test_indexes
 llmcache*
 datalakes/mitdwh_datalake
 results
+augmentations_*
+.nfs*

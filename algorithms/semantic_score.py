@@ -24,15 +24,8 @@ def compute_column_uniqueness(input_columns: list[str], candidate_columns: list[
 def compute_semantic_utility(input_columns: list[str], candidate_columns: list[str]) -> float:
     prompt = compute_semantic_utility_prompt(input_columns, candidate_columns)
     response = call_gpt(prompt)
-
-    try:
-        return float(response.strip())  
-    except:
-        print("\u26a0\ufe0f Could not parse semantic utility score:", response)
-        exit(0)
-        return 0.0
+    return float(response.strip())  
     
-
 def compute_semantic_interestingness(input_columns: list[str], candidate_colums: list[str]) -> float:
     semantic_utility = compute_semantic_utility(input_columns, candidate_colums)
     uniqueness = compute_column_uniqueness(input_columns, candidate_colums)

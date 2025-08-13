@@ -7,7 +7,8 @@ import streamlit as st
 import pandas as pd
 import duckdb
 import pprint
-from algorithms.prompts import build_suggestion_prompt, generate_augmented_sql_prompt
+import cli_only
+from algorithms.prompts import build_suggestion_prompt
 from algorithms.llm_utils import call_gpt, parse_suggestion
 from algorithms.index_builder import build_indexes_from_datalake, load_indexes
 from algorithms.join_discovery import discover_augmentable_column
@@ -16,6 +17,7 @@ from algorithms.semantic_score import (
     update_suggestions_with_semantic_scores,
 )
 from tqdm import tqdm
+from algorithms import semantic_type_extractor, sql_gen, minhash_builder, table_description_builder
 
 # ───────────────────── Connections / Globals ─────────────────────────────────
 if "con" not in st.session_state:                # ① create once
@@ -164,6 +166,8 @@ if chosen_lake:  # only proceed if the user actually picked one
                 except Exception as e:
                     st.warning(f"⚠️  Failed to read {csv_path.name}: {e}")
 
+            st.session_state.all_table_descriptions = table_description_builder.load_table_descriptions(save_dir=index_dir)
+
             # 2️⃣ Ensure indexes exist (build if missing/empty)
             with st.spinner(f"Building indexes for '{chosen_lake}' …"):
                 build_indexes_from_datalake(
@@ -222,6 +226,8 @@ if selected_input_name:
             if p.stem == selected_input_name:
                 try:
                     st.session_state.uploaded_table = pd.read_csv(p)
+                    st.session_state.uploaded_table_minhashes = minhash_builder.build_minhashes(datalake={"input_table": st.session_state.uploaded_table}, parallel_enabled=False)['input_table']
+                    st.session_state.uploaded_table_semantic_type_embeddings = semantic_type_extractor.build_semantic_type_embeddings(st.session_state.uploaded_table)
                     # Tag the DataFrame so we can detect changes later
                     st.session_state.uploaded_table.attrs["name"] = selected_input_name
                     con.register("input_table", st.session_state.uploaded_table)
@@ -255,15 +261,21 @@ if st.session_state.uploaded_table is not None:
 
 # Only generate suggestions if an input table is loaded AND suggestions haven't been generated yet
 if st.session_state.uploaded_table is not None and not st.session_state.sorting_suggestions:
-    df = st.session_state.uploaded_table
+    input_df = st.session_state.uploaded_table
+
+    input_df_minhash = minhash_builder.build_minhashes(datalake={"input_table": input_df}, parallel_enabled=False)['input_table']
 
     if st.button("Get Suggestions 💡"):
         try:
-            sample_rows = df.head(5).to_dict(orient="records")
-            column_names = list(df.columns)
+            sample_rows = input_df.head(5).to_dict(orient="records")
+            column_names = list(input_df.columns)
 
             with st.spinner("Thinking of smart ways to sort your table..."):
-                prompt = build_suggestion_prompt(sample_rows, column_names)
+                prompt = build_suggestion_prompt(
+                    input_table=input_df, 
+                    column_names=column_names, 
+                    other_table_descriptions=st.session_state.all_table_descriptions
+                )
                 print("calling GPT")
                 gpt_response = call_gpt(prompt)
                 print("calling GPT ended")
@@ -272,8 +284,12 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
 
                 if st.session_state.sorting_suggestions:
                     # ─── Load/calc indexes once ──────────────────────────────────────────────
-                    if "join_index" not in st.session_state or "semantic_index" not in st.session_state:
-                        st.session_state.join_index, st.session_state.semantic_index, st.session_state.semantic_types, st.session_state.minhashes, st.session_state.semantic_type_hnsw_index = load_indexes(st.session_state.index_dir)
+                    if "semantic_types" not in st.session_state:
+                        st.session_state.semantic_types, \
+                        st.session_state.minhashes, \
+                        st.session_state.semantic_type_hnsw_index, \
+                        st.session_state.all_table_descriptions \
+                             = load_indexes(st.session_state.index_dir)
 
                     # ─── Cache for aug-info across clicks ────────────────────────────────────
                     if "augmentation_cache" not in st.session_state:
@@ -290,16 +306,17 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
 
                             if not col_present:
                                 aug = discover_augmentable_column(
-                                    sort_attr,
-                                    df,                                   # the input table
-                                    st.session_state.data_lake,
-                                    st.session_state.semantic_index,
-                                    st.session_state.join_index,
-                                    st.session_state.semantic_types,
-                                    st.session_state.minhashes,
-                                    st.session_state.semantic_type_hnsw_index,
-                                    base_col,
-                                    5
+                                    suggested_attribute=sort_attr,
+                                    input_table=input_df,                                   # the input table
+                                    input_table_minhash=st.session_state.uploaded_table_minhashes,
+                                    input_table_semantic_type_embeddings=st.session_state.uploaded_table_semantic_type_embeddings,
+                                    datalake=st.session_state.data_lake,
+                                    semantic_type_index=st.session_state.semantic_types,
+                                    minhashes=st.session_state.minhashes,
+                                    semantic_type_hnsw_index=st.session_state.semantic_type_hnsw_index,
+                                    base_col=base_col,
+                                    top_k=5,
+                                    min_joinability_distance_threshold=0.99
                                 )
                                 if aug is None:
                                     # ✂️  drop this suggestion – we can’t satisfy it
@@ -502,7 +519,7 @@ if st.session_state.show_sql_result and st.session_state.confirmed_sort_option a
 
     with col_exp2:
         if st.session_state.augment_data_clicked:
-            join_index, semantic_index, semantic_types, minhashes, semantic_type_hnsw_index = load_indexes(st.session_state.index_dir)
+            semantic_types, semantic_type_hnsw_index, all_minhashes, all_table_descriptions = load_indexes(st.session_state.index_dir)
 
             row_key = (base_col, sort_attr)
             augment_data = st.session_state.augmentation_cache.get(row_key)
@@ -638,8 +655,20 @@ if st.session_state.show_sql_result and st.session_state.confirmed_sort_option a
     if st.session_state.augment_data_clicked:
         join_index, semantic_index, semantic_types, minhashes, semantic_type_hnsw_index = load_indexes(st.session_state.index_dir)
 
-        augment_data = discover_augmentable_column(sort_attr, st.session_state.uploaded_table, st.session_state.data_lake, semantic_index, join_index, semantic_types, minhashes, semantic_type_hnsw_index, base_col, 5)
-        
+        augment_data = discover_augmentable_column(
+            suggested_attribute=sort_attr,
+            input_table=st.session_state.uploaded_table,
+            input_table_minhash=st.session_state.uploaded_table_minhashes,
+            input_table_semantic_type_embeddings=st.session_state.uploaded_table_semantic_type_embeddings,
+            datalake=st.session_state.data_lake,
+            semantic_type_index=semantic_index,
+            minhashes=minhashes,
+            semantic_type_hnsw_index=semantic_type_hnsw_index,
+            base_col=base_col,
+            top_k=5,
+            min_joinability_distance_threshold=0.99
+        )
+
         if st.session_state.apply_augmentation_clicked:
             if augment_data is not None:
                 input_table = st.session_state.uploaded_table
@@ -649,23 +678,29 @@ if st.session_state.show_sql_result and st.session_state.confirmed_sort_option a
                 datalake_table_key = augment_data["join_key_datalake"]
                 sort_by_column = augment_data["matched_column"]
 
-                augment_sql_prompt = generate_augmented_sql_prompt(
-                    input_cols=input_table.columns,
+                # augment_sql_prompt = generate_augmented_sql_prompt(
+                #     input_cols=input_table.columns,
+                #     datalake_table_name=datalake_table_name,
+                #     join_key_input=input_table_key,
+                #     join_key_datalake=datalake_table_key,
+                #     sort_col=sort_by_column
+                # )
+
+                # augment_sql_query = call_gpt(augment_sql_prompt).strip()
+                augment_sql_query = sql_gen.build_augmented_sql(
                     datalake_table_name=datalake_table_name,
                     join_key_input=input_table_key,
                     join_key_datalake=datalake_table_key,
-                    sort_col=sort_by_column
+                    sort_cols=sort_by_column,
+                    input_dataframe=input_table,
+                    datalake_dataframe=datalake_table
                 )
 
-                augment_sql_query = call_gpt(augment_sql_prompt).strip()
 
-                if augment_sql_query:
-                    st.markdown("### Augmented SQL Query")
-                    st.code(augment_sql_query, language="sql")
+                st.markdown("### Augmented SQL Query")
+                st.code(augment_sql_query, language="sql")
 
-                    # Register both tables
-                    con.register(datalake_table_name, st.session_state.data_lake[datalake_table_name])
-                    augment_result_df = con.execute(augment_sql_query).df()
-                    st.dataframe(augment_result_df)
-                else:
-                    st.error("⚠️ Could not generate SQL. Try again.")
+                # Register both tables
+                con.register(datalake_table_name, st.session_state.data_lake[datalake_table_name])
+                augment_result_df = con.execute(augment_sql_query).df()
+                st.dataframe(augment_result_df)

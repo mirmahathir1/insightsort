@@ -1,210 +1,77 @@
 {
-    "Full Name": [
+    "job_title": [
         {
-            "column": "Total students taught",
-            "table": "Subject_offered_summary",
-            "description": "Sort people by the total enrollment of all subjects they instructed in recent terms to see who teaches the largest number of students.",
-            "interestingness": 0.9,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Number of subjects taught",
-            "table": "Subject_offered_summary",
-            "description": "Rank instructors by how many distinct subjects they taught, highlighting teaching load breadth.",
-            "interestingness": 0.8,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Median class size taught",
-            "table": "Subject_offered_summary",
-            "description": "Order instructors by the typical size of classes they teach to contrast small seminar leaders vs large-lecture instructors.",
-            "interestingness": 0.75,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Distinct departments taught in",
-            "table": "Subjects_offered",
-            "description": "Sort by the number of different departments an instructor has taught in to surface cross-disciplinary teaching.",
-            "interestingness": 0.65,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Terms taught (recent years)",
-            "table": "Drupal_course_catalog",
-            "description": "Rank by the count of academic terms in which the person taught recently to see teaching recency and consistency.",
-            "interestingness": 0.6,
-            "column present in the table": "No"
-        }
-    ],
-    "Primary Title": [
-        {
-            "column": "Institution-wide title headcount",
-            "table": "Employee_directory",
-            "description": "Sort people by how common their exact title is across the institution to highlight rare vs prevalent roles.",
-            "interestingness": 0.75,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Typical HR org level employing this title",
-            "table": "Hr_org_unit_new",
-            "description": "Order individuals by the average organizational tier (closer to institute level vs lower-level units) where their title is commonly found.",
-            "interestingness": 0.6,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Office building access level",
-            "table": "Fclt_building",
-            "description": "Rank titles by the security level of the buildings where people with that title are typically located (e.g., public < restricted < secure).",
-            "interestingness": 0.65,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Office building occupancy rate",
-            "table": "Fclt_building_hist_1",
-            "description": "Sort by how crowded the typical office buildings are for people with this title to contrast lab-heavy vs office-heavy roles.",
-            "interestingness": 0.55,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Office building gross floor area",
-            "table": "Buildings",
-            "description": "Order individuals by the size of the buildings where people with their title typically sit, indicating scale of facilities supporting that role.",
-            "interestingness": 0.5,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Faculty rank",
-            "table": "Hr_faculty_roster",
-            "description": "Order people by academic seniority (Assistant, Associate, Full), showing which titles tend to map to higher ranks.",
-            "interestingness": 0.86,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Tenure status",
-            "table": "Hr_faculty_roster",
-            "description": "Sort by whether individuals are non-tenure-track, tenure-track, or tenured, highlighting role stability and seniority across titles.",
-            "interestingness": 0.7,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Subjects taught count",
-            "table": "Library_subject_offered",
-            "description": "Prioritize titles associated with heavier teaching loads by counting how many subjects a person is listed to teach.",
-            "interestingness": 0.74,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Average enrollment in taught subjects",
-            "table": "Tip_subject_offered",
-            "description": "Highlight titles linked to instructors who teach larger or smaller classes on average.",
-            "interestingness": 0.7,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Moira list memberships count",
-            "table": "Moira_list_detail",
-            "description": "Surface titles with broader administrative or community involvement by counting mailing list memberships.",
-            "interestingness": 0.6,
-            "column present in the table": "No"
-        },
-        {
-            "column": "IAP subjects involvement count",
-            "table": "Iap_subject_person",
-            "description": "Emphasize titles more engaged with IAP by counting subjects where the person is listed as instructor or staff.",
-            "interestingness": 0.55,
-            "column present in the table": "No"
-        }
-    ],
-    "Department Name": [
-        {
-            "column": "Organization hierarchy level",
-            "table": "Master_dept_hierarchy",
-            "description": "Sort by each department’s tier in the institute hierarchy to see units closer to the top vs deeper subunits.",
-            "interestingness": 0.7,
-            "column present in the table": "No"
-        },
-        {
-            "column": "HR org unit level",
-            "table": "Hr_org_unit_new",
-            "description": "Rank departments by their HR organizational level to understand structural position across units.",
-            "interestingness": 0.65,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Total subject enrollment (recent term)",
-            "table": "Subject_offered_summary",
-            "description": "Order people by the total student enrollment associated with their department’s subjects to highlight teaching footprint.",
+            "column": "Average salary",
+            "table": "avg_salary_by_title",
+            "description": "Sort roles by their market-average pay to see which titles are generally higher or lower compensated.",
             "interestingness": 0.85,
             "column present in the table": "No"
         },
         {
-            "column": "Number of subjects offered",
-            "table": "Subject_offered_summary",
-            "description": "Sort by how many subjects the department offers to see curriculum breadth.",
+            "column": "Job satisfaction score",
+            "table": "job_satisfaction",
+            "description": "Order job titles by overall employee satisfaction to highlight roles that tend to be more fulfilling.",
             "interestingness": 0.8,
             "column present in the table": "No"
         },
         {
-            "column": "Average units per subject",
-            "table": "Subject_summary",
-            "description": "Rank departments by the typical credit load of their subjects to compare curricular intensity.",
-            "interestingness": 0.6,
+            "column": "Benefits satisfaction score",
+            "table": "benefits_index",
+            "description": "Rank titles by how positively employees rate their benefits packages.",
+            "interestingness": 0.65,
             "column present in the table": "No"
         },
         {
-            "column": "Department facility total gross area",
-            "table": "Fclt_building_list",
-            "description": "Order by the combined area of facilities associated with the department to reveal space-intensive units.",
-            "interestingness": 0.7,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Number of buildings utilized",
-            "table": "Fclt_building_list",
-            "description": "Sort departments by how many buildings they occupy to see geographic spread and operational complexity.",
-            "interestingness": 0.6,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Subjects offered count",
-            "table": "Tip_subject_offered",
-            "description": "Order departments by how many subjects they offer in a term, revealing teaching breadth.",
-            "interestingness": 0.82,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Total enrollment across subjects",
-            "table": "Library_subject_offered",
-            "description": "Sort departments by cumulative enrollment to see which units attract the most students.",
-            "interestingness": 0.84,
-            "column present in the table": "No"
-        },
-        {
-            "column": "Space units count",
-            "table": "Space_unit",
-            "description": "Rank departments by the number of associated space units to approximate physical footprint.",
+            "column": "Remote work percentage",
+            "table": "job_remote_percent",
+            "description": "Sort job titles by how much work can typically be performed remotely.",
             "interestingness": 0.75,
             "column present in the table": "No"
         },
         {
-            "column": "Organization hierarchy level",
-            "table": "Fac_organization",
-            "description": "Sort by hierarchical depth within the institution to see which departments sit higher or deeper in the org structure.",
-            "interestingness": 0.63,
+            "column": "Seniority level",
+            "table": "title_hierarchy",
+            "description": "Order titles by their natural seniority progression (e.g., junior to senior) to surface role level differences.",
+            "interestingness": 0.6,
+            "column present in the table": "No"
+        }
+    ],
+    "department": [
+        {
+            "column": "Average salary",
+            "table": "department_salary_summary",
+            "description": "Rank departments by their typical pay levels to compare compensation across functions.",
+            "interestingness": 0.7,
             "column present in the table": "No"
         },
         {
-            "column": "Active fiscal periods count",
-            "table": "Fclt_organization_hist",
-            "description": "Rank departments by the number of fiscal periods they appear as active, indicating longevity or stability.",
-            "interestingness": 0.67,
+            "column": "Maximum salary",
+            "table": "department_salary_summary",
+            "description": "Sort by departmental pay ceilings to see where the highest potential earnings are.",
+            "interestingness": 0.65,
             "column present in the table": "No"
         },
         {
-            "column": "IAP subjects sponsored count",
-            "table": "Iap_subject_sponsor",
-            "description": "Order departments by how many IAP subjects they sponsor to highlight outreach and special programming.",
-            "interestingness": 0.62,
+            "column": "Minimum salary",
+            "table": "department_salary_summary",
+            "description": "Order departments by entry or low-end pay to understand baseline compensation differences.",
+            "interestingness": 0.4,
+            "column present in the table": "No"
+        }
+    ],
+    "location": [
+        {
+            "column": "Cost of living index",
+            "table": "cost_of_living",
+            "description": "Sort cities by living costs to contextualize salaries relative to local expenses.",
+            "interestingness": 0.9,
+            "column present in the table": "No"
+        },
+        {
+            "column": "Crime rate per 1000 inhabitants",
+            "table": "crime_rates",
+            "description": "Order locations by safety levels to factor in environment when comparing roles and pay.",
+            "interestingness": 0.7,
             "column present in the table": "No"
         }
     ]

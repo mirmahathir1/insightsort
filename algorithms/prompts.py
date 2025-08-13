@@ -144,83 +144,35 @@ Return only a decimal number between 0 and 1, without explanation.
 # Output only the SQL query — no explanations, no markdown, no extra formatting and no ```sql annotation.
 # """
 
-def generate_augmented_sql_prompt(input_cols, datalake_table_name, join_key_input, join_key_datalake, sort_cols):
-    """
-    sort_cols can be a single column name (str) or a list/tuple of column names.
-    """
-    if isinstance(sort_cols, (list, tuple)):
-        sort_cols_text = ", ".join(sort_cols)
-    else:
-        sort_cols_text = str(sort_cols)
+# def generate_augmented_sql_prompt(input_cols, datalake_table_name, join_key_input, join_key_datalake, sort_cols):
+#     """
+#     sort_cols can be a single column name (str) or a list/tuple of column names.
+#     """
+#     if isinstance(sort_cols, (list, tuple)):
+#         sort_cols_text = ", ".join(sort_cols)
+#     else:
+#         sort_cols_text = str(sort_cols)
 
-    return f"""
-You are given:
-- An input table named `input_table` with the following columns: {input_cols}
-- A data lake table named `{datalake_table_name}`
+#     return f"""
+# You are given:
+# - An input table named `input_table` with the following columns: {input_cols}
+# - A data lake table named `{datalake_table_name}`
 
-Your task is to:
-1. Perform an INNER JOIN between `input_table` and `{datalake_table_name}` using:
-   - `input_table.{join_key_input}` = `{datalake_table_name}.{join_key_datalake}`
-2. Return ONLY the following columns:
-   - `input_table.{join_key_input}`
-   - `{datalake_table_name}.{sort_cols_text}`  (if multiple, include all of them)
-3. Discard duplicate rows by using SELECT DISTINCT over the projected columns.
-4. Sort the final result in descending order by `{datalake_table_name}.{sort_cols_text}`.
-   - If multiple sort attributes are provided, sort by them in the given order, all DESC.
-5. Ensure all column references in SELECT, JOIN, and ORDER BY clauses are fully qualified with table names.
-6. Wrap column names that contain spaces or special characters in double quotes, e.g., "cost of living index".
+# Your task is to:
+# 1. Perform an INNER JOIN between `input_table` and `{datalake_table_name}` using:
+#    - `input_table.{join_key_input}` = `{datalake_table_name}.{join_key_datalake}`
+# 2. Return ONLY the following columns:
+#    - `input_table.{join_key_input}`
+#    - `{datalake_table_name}.{sort_cols_text}`  (if multiple, include all of them)
+# 3. Discard duplicate rows by using SELECT DISTINCT over the projected columns.
+# 4. Sort the final result in descending order by `{datalake_table_name}.{sort_cols_text}`.
+#    - If multiple sort attributes are provided, sort by them in the given order, all DESC.
+# 5. Ensure all column references in SELECT, JOIN, and ORDER BY clauses are fully qualified with table names.
+# 6. Wrap column names that contain spaces or special characters in double quotes, e.g., "cost of living index".
 
-Output only the SQL query — no explanations, no markdown, no extra formatting and no ```sql annotation.
-"""
+# Output only the SQL query — no explanations, no markdown, no extra formatting and no ```sql annotation.
+# """
 
-def build_augmented_sql(datalake_table_name, join_key_input, join_key_datalake, sort_cols):
-    """
-    Return a SQL string that:
-      - INNER JOINs input_table to the given data-lake table
-      - SELECT DISTINCTs only input_table.join_key_input and the specified data-lake sort columns
-      - ORDER BY all sort columns in DESC order (in the given order)
-      - Fully qualifies all columns and quotes identifiers with spaces/special chars
-    """
-
-    import re
-
-    def q_ident(ident: str) -> str:
-        """Quote an identifier if it has spaces/special chars or starts with a digit."""
-        ident = str(ident)
-        if ident.startswith('"') and ident.endswith('"'):
-            return ident  # already quoted
-        return ident if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', ident) else f'"{ident}"'
-
-    def q_table(tname: str) -> str:
-        """Quote each part of a possibly qualified table name like schema.table."""
-        parts = [p.strip() for p in str(tname).split('.')]
-        return '.'.join(q_ident(p) for p in parts)
-
-    # normalize sort_cols
-    if isinstance(sort_cols, (list, tuple)):
-        sort_list = [str(c) for c in sort_cols if str(c).strip() != ""]
-    else:
-        sort_list = [str(sort_cols)]
-
-    if not sort_list:
-        raise ValueError("sort_cols must contain at least one column name.")
-
-    t_dl = q_table(datalake_table_name)
-    jk_input = q_ident(join_key_input)
-    jk_dl    = q_ident(join_key_datalake)
-
-    select_cols = [f"input_table.{jk_input}"] + [f"{t_dl}.{q_ident(c)}" for c in sort_list]
-    order_by    = ", ".join(f"{t_dl}.{q_ident(c)} DESC" for c in sort_list)
-
-    sql = (
-        "SELECT DISTINCT\n  "
-        + ",\n  ".join(select_cols)
-        + "\nFROM input_table\n"
-        f"INNER JOIN {t_dl}\n"
-        f"  ON input_table.{jk_input} = {t_dl}.{jk_dl}\n"
-        f"ORDER BY {order_by};"
-    )
-    return sql
 
 
 def generate_single_table_sql_prompt(input_cols, required_col, description, base_col):
@@ -287,52 +239,6 @@ def generate_semantic_type_prompt(df: pd.DataFrame, top_k: int = 20) -> str:
         lines.append(f'{col} = [{example_block}]')
 
     return "\n".join(lines)
-
-def build_ordinal_ordering_prompt(column_name, unique_values):
-    """
-    Creates a prompt for ChatGPT to determine if a categorical column has an inherent ordering.
-
-    Args:
-        column_name (str): The name of the column.
-        unique_values (list[str]): A list of unique categorical values from the column.
-
-    Returns:
-        str: A formatted prompt string for the ChatGPT API.
-    """
-    values_str = ", ".join(f"'{v}'" for v in unique_values)
-    return f"""
-You are given the name of a database column and its unique categorical values.
-
-Column name: {column_name}
-Unique values: [{values_str}]
-
-Your task:
-1. Determine if these categorical values have an **inherent ordinal ordering** 
-   (e.g., 'Small' < 'Medium' < 'Large' or 'Beginner' < 'Intermediate' < 'Advanced').
-2. If an ordinal ordering exists, output a JSON object with:
-   - "can_order": true
-   - "order": an array of values in their correct order from lowest to highest.
-3. If no clear inherent ordering exists, output a JSON object with:
-   - "can_order": false
-   - "order": []
-
-Rules:
-- Do not guess unless there is a clear, justifiable ordering that would be commonly understood.
-- Preserve the exact string values as given (case-sensitive, no trimming).
-- The JSON must be valid and nothing else should be output.
-
-Example output when ordering is possible:
-{{
-  "can_order": true,
-  "order": ["Admission Candidate", "Freshman", "Senior", "Graduated"]
-}}
-
-Example output when ordering is not possible:
-{{
-  "can_order": false,
-  "order": []
-}}
-"""
 
 import math
 import json

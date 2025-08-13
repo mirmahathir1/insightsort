@@ -16,6 +16,7 @@ import codecs
 from custom_lib import parallel
 from algorithms import table_description_builder, minhash_builder
 import time
+from algorithms import sql_gen
 
 # ── Your existing modules ─────────────────────────────────────────────────────
 from algorithms import prompts, embedding_utils
@@ -130,11 +131,10 @@ def _read_csv_worker(arg, common_arguments, common_args_for_batch):
     """
     p = Path(arg["path"])
     name = arg["name"]
-    try:
-        df = read_csv_safely(p)
-        return ("ok", name, df)
-    except Exception as e:
-        return ("err", name, f"{p.name}: {e}")
+
+    df = read_csv_safely(p)
+    return ("ok", name, df)
+
 
 # ───────────────────── parallelized table loader ─────────────────────
 def load_datalake_tables(lake_dir: Path) -> dict[str, pd.DataFrame]:
@@ -196,7 +196,14 @@ def split_dict(original_dict, n):
     items = list(original_dict.items())
     return [dict(items[i:i + n]) for i in range(0, len(items), n)]
 
-def generate_suggestions(input_table: pd.DataFrame, input_table_minhash, all_minhashes, data_lake: dict[str, pd.DataFrame], index_dir: Path, table_descriptions: list[dict[str, str]]) -> tuple[pd.DataFrame, dict]:
+def generate_suggestions(
+        input_table: pd.DataFrame, 
+        input_table_minhash, 
+        all_minhashes, 
+        data_lake: dict[str, pd.DataFrame], 
+        index_dir: Path, 
+        table_descriptions: list[dict[str, str]]
+        ) -> tuple[pd.DataFrame, dict]:
     """
     Calls LLM to generate suggestions, filters/augments where needed,
     enriches with semantic scores; returns (suggestions_df, augmentation_cache)
@@ -236,11 +243,7 @@ def generate_suggestions(input_table: pd.DataFrame, input_table_minhash, all_min
         unique_suggestions = []
         seen = []
         for s in suggestions:
-            try:
-                sort_attr = s["column"]
-            except KeyError:
-                print(f"⚠️ Missing 'column' in suggestion for base column '{base_col}': {s}")
-                exit(0)
+            sort_attr = s["column"]
             is_similar = False
             for seen_attr in seen:
                 similarity = SequenceMatcher(None, sort_attr.lower(), seen_attr.lower()).ratio()
@@ -252,10 +255,6 @@ def generate_suggestions(input_table: pd.DataFrame, input_table_minhash, all_min
                 seen.append(sort_attr)
         all_suggestions[base_col] = unique_suggestions
 
-
-
-    # exit(0)
-
     # Load indexes once
     join_index, semantic_index, semantic_types, semantic_type_hnsw_index = load_indexes(index_dir)
 
@@ -264,10 +263,7 @@ def generate_suggestions(input_table: pd.DataFrame, input_table_minhash, all_min
 
     # suggestions: { base_col: [ {column, description, interestingness, "column present in the table": "Yes"/"No"} ] }
     print_rule("Evaluating suggestions against the data lake")
-    input_table_semantic_types = semantic_type_extractor.infer_semantic_types_for_df(df=input_table)
-    input_table_semantic_type_embeddings = {}
-    for column in input_table.columns:
-        input_table_semantic_type_embeddings[column] = embedding_utils.embed_text(input_table_semantic_types[column])
+    input_table_semantic_type_embeddings = semantic_type_extractor.build_semantic_type_embeddings(input_table)
     print("discover_augmentable_column")
     for base_col, sort_list in all_suggestions.items():
         for s in sort_list:
@@ -299,8 +295,8 @@ def generate_suggestions(input_table: pd.DataFrame, input_table_minhash, all_min
             rows.append({
                 "Base Column":     base_col,
                 "Sort Attribute":  sort_attr,
-                "Description":     s.get("description", ""),
-                "Interestingness": s.get("interestingness", ""),
+                "Description":     s["description"],
+                "Interestingness": s["interestingness"],
                 "Required Column": s["column"],
                 "Column present":  "Yes" if col_present else "No",
                 "Matched Column": sort_attr if col_present else aug['matched_column'],
@@ -395,27 +391,23 @@ def generate_augmented_sql_and_run(con,
     datalake_table_key  = augment_data["join_key_datalake"]
     sort_by_column      = augment_data["matched_column"]
 
-    prompt = prompts.generate_augmented_sql_prompt(
-        input_cols=df_input.columns,
+    typed_df, inferred = infer_type.infer_and_cast_df(data_lake[datalake_table_name], percent_scale=True)
+
+    sql = sql_gen.build_augmented_sql(
         datalake_table_name=datalake_table_name,
         join_key_input=input_table_key,
         join_key_datalake=datalake_table_key,
-        sort_cols=[sort_by_column]
-    )
-
-    # print_rule("Calling LLM for augmented SQL")
-    # sql = call_gpt(prompt).strip()
-    # if not sql:
-    #     raise RuntimeError("LLM returned empty augmented SQL.")
-    sql = prompts.build_augmented_sql(datalake_table_name=datalake_table_name, join_key_input=input_table_key, join_key_datalake=datalake_table_key, sort_cols=[sort_by_column])
+        sort_cols=[sort_by_column],
+        input_dataframe=df_input,
+        datalake_dataframe=typed_df
+        )
 
     print_rule("🧾 Generated Augmented SQL")
     print(sql, "\n")
 
     # Register the datalake table in DuckDB under its table name
-    typed_df, inferred = infer_type.infer_and_cast_df(data_lake[datalake_table_name], percent_scale=True)
+
     con.register(datalake_table_name, typed_df)
-    # con.register(datalake_table_name, data_lake[datalake_table_name])
 
     out_df = con.execute(sql).df()
     return sql, out_df
@@ -468,11 +460,8 @@ def main():
     con = duckdb.connect()
 
     # Select & load input table
-    try:
-        input_name, df_input, input_path = select_input_table(lake_dir, prefer=args.input_table)
-    except Exception as e:
-        eprint(f"❌ {e}")
-        sys.exit(1)
+
+    input_name, df_input, input_path = select_input_table(lake_dir, prefer=args.input_table)
 
     # print_rule(f"Input table: {input_name}")
     # print_df(df_input)
@@ -490,8 +479,64 @@ def main():
     all_minhashes = minhash_builder.load_minhashes(index_dir)
 
     suggestions_df, augmentation_cache = generate_suggestions(df_input, input_table_minhash, all_minhashes, data_lake, index_dir, table_descriptions)
+    # Remove duplicate rows based on 'Base Column' and 'Matched Column'
+    suggestions_df = suggestions_df.drop_duplicates(subset=['Base Column', 'Matched Column'])
     end_time = time.time()
     print(f"generate_suggestions runtime: {end_time - start_time:.2f} seconds")
+
+    # Write augmentations and metadata to txt files before showing suggestions
+    augment_dir = Path.cwd() / "augmentations_txt"
+    # Clear the augment_dir if it exists
+    if augment_dir.exists() and augment_dir.is_dir():
+        for f in augment_dir.iterdir():
+            if f.is_file():
+                f.unlink()
+    augment_dir.mkdir(parents=True, exist_ok=True)
+
+    # Iterate over suggestions_df to generate output files for all suggestions, with order number prefix
+    for order_num, (_, row) in enumerate(suggestions_df.iterrows(), 1):
+        base_col = row["Base Column"]
+        sort_attr = row["Sort Attribute"]
+        column_present = row["Column present"] == "Yes"
+        if column_present:
+            # Generate file for present columns (sort SQL)
+            filename = augment_dir / f"{order_num}_sort_{base_col}__{sort_attr}.txt"
+            result_df = generate_sort_sql_and_run(con, df_input, row)
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(f"Base Column: {base_col}\n")
+                f.write(f"Sort Attribute: {sort_attr}\n")
+                f.write("[Column present in input table]\n")
+                f.write("\n--- Sorted Table (first 20 rows) ---\n")
+                if result_df is not None:
+                    f.write(result_df.head(20).to_string(index=False))
+                    if len(result_df) > 20:
+                        f.write(f"\n... ({len(result_df) - 20} more rows)\n")
+                else:
+                    f.write("[Error generating sorted table]\n")
+        else:
+            aug = augmentation_cache[(base_col, sort_attr)] if (base_col, sort_attr) in augmentation_cache else None
+            if not aug:
+                continue
+            filename = augment_dir / f"{order_num}_augmentation_{base_col}__{sort_attr}.txt"
+
+            _, out_df = generate_augmented_sql_and_run(con, df_input, data_lake, aug)
+
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(f"Base Column:                      {base_col}\n")
+                f.write(f"Description:                      {row['Description']}\n")
+                f.write(f"Suggested Attribute:              {aug['suggested_attribute']}\n")
+                f.write(f"Matched Table / Column:           {aug['matched_table']} / {aug['matched_column']}\n")
+                f.write(f"Join Keys (input \u2194 lake):    {aug['join_key_input']} <-> {aug['join_key_datalake']}\n")
+
+                semantic_distance = aug['semantic_distance']
+                join_distance = aug['join_distance']
+                f.write(f"Semantic Distance:       {semantic_distance}\n")
+                f.write(f"Join Distance:           {join_distance}\n")
+                f.write("\n--- Augmented Table (first 20 rows) ---\n")
+
+                f.write(out_df.to_string(index=False))
+
+    print(f"✅ Augmentation details written to {augment_dir}/<order>_augmentation_<base_col>__<sort_attr>.txt for each augmentation.")
 
     # Display & pick
     while True:
@@ -501,53 +546,47 @@ def main():
             print_rule("Selected suggestion (JSON)")
             print(json.dumps(selected_row.to_dict(), indent=2))
 
-        column_present = (selected_row.get("Column present", "No") == "Yes")
+        column_present = selected_row["Column present"] == "Yes"
 
-        try:
-            if column_present:
-                if yes_no("\nRequired column is present. Generate and run sort SQL now?"):
-                    result_df = generate_sort_sql_and_run(con, df_input, selected_row)
-                    print_rule("Result (sorted table)")
-                    print_df(result_df)
-                    if args.export or yes_no("Export result to CSV?", default_yes=False):
-                        out = Path(args.export) if args.export else Path.cwd() / f"{input_name}__sorted.csv"
-                        export_df(result_df, out)
-                else:
-                    print("Skipped SQL generation.")
+        if column_present:
+            if yes_no("\nRequired column is present. Generate and run sort SQL now?"):
+                result_df = generate_sort_sql_and_run(con, df_input, selected_row)
+                print_rule("Result (sorted table)")
+                print_df(result_df)
+                if args.export or yes_no("Export result to CSV?", default_yes=False):
+                    out = Path(args.export) if args.export else Path.cwd() / f"{input_name}__sorted.csv"
+                    export_df(result_df, out)
             else:
-                print_rule("Augmentation suggested (required column missing)")
-                base_col  = selected_row["Base Column"]
-                sort_attr = selected_row["Sort Attribute"]
-                aug = augmentation_cache.get((base_col, sort_attr))
-                if not aug:
-                    raise RuntimeError("Could not find a viable augmentation for the selected suggestion.")
+                print("Skipped SQL generation.")
+        else:
+            print_rule("Augmentation suggested (required column missing)")
+            base_col  = selected_row["Base Column"]
+            sort_attr = selected_row["Sort Attribute"]
+            aug = augmentation_cache[(base_col, sort_attr)] if (base_col, sort_attr) in augmentation_cache else None
+            if not aug:
+                raise RuntimeError("Could not find a viable augmentation for the selected suggestion.")
 
-                print("Suggested Attribute:     ", aug["suggested_attribute"])
-                print("Matched Table / Column:  ", aug["matched_table"], "/", aug["matched_column"])
-                print("Join Keys (input ↔ lake):", aug["join_key_input"], "<->", aug["join_key_datalake"])
-                print(f"Semantic Distance:       {float(aug['semantic_distance']):.4f}")
-                print(f"Join Distance:           {float(aug['join_distance']):.4f}")
+            print("Suggested Attribute:     ", aug["suggested_attribute"])
+            print("Matched Table / Column:  ", aug["matched_table"], "/", aug["matched_column"])
+            print("Join Keys (input ↔ lake):", aug["join_key_input"], "<->", aug["join_key_datalake"])
+            print(f"Semantic Distance:       {float(aug['semantic_distance']):.4f}")
+            print(f"Join Distance:           {float(aug['join_distance']):.4f}")
 
-                if yes_no("\nApply augmentation and run augmented SQL?"):
-                    sql, out_df = generate_augmented_sql_and_run(con, df_input, data_lake, aug)
-                    print_rule("Augmented result")
-                    default_max_rows = 100
-                    print(f"Showing up to {default_max_rows} rows as a sample.")
-                    print_df(out_df, max_rows=default_max_rows)
-                    if len(out_df) > default_max_rows:
-                        show_all = yes_no(f"Show all {len(out_df)} rows?", default_yes=False)
-                        if show_all:
-                            print_df(out_df, max_rows=len(out_df))
-                    if args.export or yes_no("Export augmented result to CSV?", default_yes=False):
-                        out = Path(args.export) if args.export else Path.cwd() / f"{input_name}__augmented_sorted.csv"
-                        export_df(out_df, out)
-                else:
-                    print("Skipped augmentation.")
-        except Exception as e:
-            eprint("\n❌ Error during SQL generation/execution:")
-            eprint(e)
-            eprint(traceback.format_exc())
-            sys.exit(2)
+            if yes_no("\nApply augmentation and run augmented SQL?"):
+                sql, out_df = generate_augmented_sql_and_run(con, df_input, data_lake, aug)
+                print_rule("Augmented result")
+                default_max_rows = 100
+                print(f"Showing up to {default_max_rows} rows as a sample.")
+                print_df(out_df, max_rows=default_max_rows)
+                if len(out_df) > default_max_rows:
+                    show_all = yes_no(f"Show all {len(out_df)} rows?", default_yes=False)
+                    if show_all:
+                        print_df(out_df, max_rows=len(out_df))
+                if args.export or yes_no("Export augmented result to CSV?", default_yes=False):
+                    out = Path(args.export) if args.export else Path.cwd() / f"{input_name}__augmented_sorted.csv"
+                    export_df(out_df, out)
+            else:
+                print("Skipped augmentation.")
 
         print_rule("Done")
 

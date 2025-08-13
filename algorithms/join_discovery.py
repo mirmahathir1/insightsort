@@ -110,8 +110,6 @@ def discover_augmentable_column(
     input_table_minhash,
     input_table_semantic_type_embeddings,
     datalake: Dict[str, pd.DataFrame],
-    semantic_index,
-    join_index,
     semantic_type_index: Dict[str, Dict[str, str]],
     minhashes,
     semantic_type_hnsw_index,
@@ -168,17 +166,14 @@ def discover_augmentable_column(
 
         min_joinability_distance = 1
         best_datalake_join_key = None
-        try:
-            for col, minhash in minhashes[table_name].items():
-                jaccard = input_table_base_col_minhash.jaccard(minhash)
-                joinability_distance = 1 - jaccard
-                if joinability_distance < min_joinability_distance:
-                    min_joinability_distance = joinability_distance
-                    best_datalake_join_key = col
-        except KeyError:
-            print(f"KeyError: {table_name} not found in minhashes.")
-            print(f"Available keys: {list(minhashes.keys())}")
-            exit(0)
+
+        for col, minhash in minhashes[table_name].items():
+            jaccard = input_table_base_col_minhash.jaccard(minhash)
+            joinability_distance = 1 - jaccard
+            if joinability_distance < min_joinability_distance:
+                min_joinability_distance = joinability_distance
+                best_datalake_join_key = col
+
 
         if best_datalake_join_key is None:
             # print(f"No suitable join key found in {table_name} for {base_col}.")

@@ -145,13 +145,13 @@ def load_indexes(index_dir: str, dim: int = 384):
     sem_prefix  = os.path.join(index_dir, "semantic_index",     "index")
     semantic_type_hnsw_path = os.path.join(index_dir, "semantic_type_index", "index")
     join_index = HNSWIndex(dim=dim); join_index.load(join_prefix)
-    semantic_index = HNSWIndex(dim=dim); semantic_index.load(sem_prefix)
     semantic_type_hnsw_index = HNSWIndex(dim=dim); semantic_type_hnsw_index.load(semantic_type_hnsw_path)
 
     semantic_types = semantic_type_extractor.load_semantic_types(save_dir=index_dir)
-    
+    all_minhashes = minhash_builder.load_minhashes(index_dir)
+    all_table_descriptions = table_description_builder.load_table_descriptions(index_dir)
 
-    return join_index, semantic_index, semantic_types, semantic_type_hnsw_index
+    return semantic_types, semantic_type_hnsw_index, all_minhashes, all_table_descriptions
 
 
 def build_indexes_from_datalake(datalake: dict[str, pd.DataFrame], save_dir: str,
@@ -173,4 +173,8 @@ def build_indexes_from_datalake(datalake: dict[str, pd.DataFrame], save_dir: str
 
     _build_semantic_type_hnsw_index(save_dir, force=force, verbose=verbose)
     minhash_builder._build_minhashes(datalake, save_dir)
+
+    if not table_description_builder.does_table_descriptions_exist(save_dir):
+        descriptions = table_description_builder.generate_all_table_descriptions(datalake, semantic_types)
+        table_description_builder.save_table_descriptions(descriptions, save_dir)
 

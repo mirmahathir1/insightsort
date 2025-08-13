@@ -35,33 +35,23 @@ def call_gpt(prompt: str, model: str = "gpt-5", temperature: float = 1) -> str:
         return cached_content
 
     # ─── 2) Otherwise query the API ─────────────────────────────────────────────
-    try:
-        response = openai.ChatCompletion.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=temperature,
-        )
-        content = response["choices"][0]["message"]["content"]
-        # print("from API:", content)
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
+    )
+    content = response["choices"][0]["message"]["content"]
+    # print("from API:", content)
 
-        # ─── 3) Persist to cache ───────────────────────────────────────────────
-        with cache_file.open("w", encoding="utf-8") as f:
-            json.dump({"content": content}, f, ensure_ascii=False, indent=2)
+    # ─── 3) Persist to cache ───────────────────────────────────────────────
+    with cache_file.open("w", encoding="utf-8") as f:
+        json.dump({"content": content}, f, ensure_ascii=False, indent=2)
 
-        return content
-
-    except Exception as e:
-        print("GPT Error:", e)
-        return None
-
+    return content
 
 
 def parse_suggestion(gpt_output):
-    try:
-        return json.loads(gpt_output)
-    except json.JSONDecodeError:
-        print("Failed to parse GPT output.")
-        return {}
+    return json.loads(gpt_output)
 
 def extract_json_object(text: str):
     """

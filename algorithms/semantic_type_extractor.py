@@ -2,7 +2,7 @@ import difflib
 from typing import Dict
 import pandas as pd
 import os
-from algorithms import prompts, llm_utils
+from algorithms import embedding_utils, prompts, llm_utils
 import json
 
 def align_semantic_types(
@@ -136,3 +136,10 @@ def load_semantic_types(save_dir: str) -> dict[str, dict[str, str]]:
 
     with open(input_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+def build_semantic_type_embeddings(input_table: pd.DataFrame) -> dict[str, list[float]]:
+    input_table_semantic_types = infer_semantic_types_for_df(df=input_table)
+    input_table_semantic_type_embeddings = {}
+    for column in input_table.columns:
+        input_table_semantic_type_embeddings[column] = embedding_utils.embed_text(input_table_semantic_types[column])
+    return input_table_semantic_type_embeddings
