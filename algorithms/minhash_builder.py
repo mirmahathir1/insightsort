@@ -1,3 +1,9 @@
+from datasketch import MinHash
+import pandas as pd
+import os
+import pickle
+from custom_lib import parallel
+
 # ─────────────────────── Loader for minhashes ───────────────────
 def load_minhashes(save_dir: str):
 	"""
@@ -12,11 +18,7 @@ def load_minhashes(save_dir: str):
 	if not isinstance(minhashes, dict):
 		raise ValueError("Minhashes should be a dictionary of {table: {column: MinHash}}")
 	return minhashes
-from datasketch import MinHash
-import pandas as pd
-import os
-import pickle
-from custom_lib import parallel
+
 
 # ───────────────────────── Column-level worker ──────────────────────────────
 def get_column_minhash(arg, com_arg, com_arg_batch):
@@ -71,23 +73,7 @@ def build_minhashes(datalake: dict[str, pd.DataFrame], parallel_enabled=True):
 
 	return column_minhashes
 
-# ─────────────────────── Builder using column parallelism ───────────────────
-def _build_minhashes(datalake: dict[str, pd.DataFrame], save_dir: str):
-	"""
-	datalake: { table_name: DataFrame }
-	Parallelizes across columns, aggregates to:
-	  { table_name: { column_name: MinHash } }
-	"""
-	# check if minhashes already exist
-	minhash_path = os.path.join(save_dir, "minhashes", "minhashes.pickle")
-	if os.path.exists(minhash_path):
-		print(f"✅ Minhashes already exist at {minhash_path}. Skipping.")
-		return
-
-	print("🔨 Building minhashes for datalake columns...")
-	column_minhashes = build_minhashes(datalake)
-
-	# Persist
+def save_minhashes(column_minhashes: dict[str, dict[str, MinHash]], save_dir: str):
 	minhash_dir = os.path.join(save_dir, "minhashes")
 	os.makedirs(minhash_dir, exist_ok=True)
 	minhash_path = os.path.join(minhash_dir, "minhashes.pickle")
@@ -95,4 +81,23 @@ def _build_minhashes(datalake: dict[str, pd.DataFrame], save_dir: str):
 		pickle.dump(column_minhashes, f)
 	print(f"💾 Saved minhashes → {minhash_path}")
 
-	return column_minhashes
+def load_minhashes(save_dir: str) -> dict[str, dict[str, MinHash]]:
+	"""
+	Loads minhashes from disk.
+	Returns: {table: {column: MinHash}}
+	"""
+	minhash_path = os.path.join(save_dir, "minhashes", "minhashes.pickle")
+	if not os.path.exists(minhash_path):
+		raise FileNotFoundError(f"Minhashes file not found at {minhash_path}")
+	with open(minhash_path, "rb") as f:
+		minhashes = pickle.load(f)
+	if not isinstance(minhashes, dict):
+		raise ValueError("Minhashes should be a dictionary of {table: {column: MinHash}}")
+	return minhashes
+
+def does_minhashes_exist(save_dir: str) -> bool:
+	"""
+	Checks if minhashes exist at the given save directory.
+	"""
+	minhash_path = os.path.join(save_dir, "minhashes", "minhashes.pickle")
+	return os.path.exists(minhash_path)

@@ -25,7 +25,8 @@ Your task is to analyze this table and suggest **semantic sorting options**.
 2. For each such input column (base column), generate **interesting and diverse** sort options, based on real-world attributes (e.g., for column 'country': GDP, population, life expectancy, etc). Ignore alphabetical or simple value-based sorting.
 3. The suggestions must come from the tables provided in the `other_table_descriptions` section, which contains attributes that can be used for sorting.
 4. For each suggestion, provide:
-   - `column`: The single **attribute name** used for sorting that may or may not be present in the input table. The name should not follow any variable naming conventions (e.g., no underscores, camelCase, etc). Use natural language names.
+   - `column`: The single **attribute name** used for sorting that may or may not be present in the input table.
+   - `name`: The name of the column in natural language. It should not follow any variable naming conventions (e.g., no underscores, camelCase, etc). Use natural language names.
    - `table`: The name of the table from which this attribute comes (e.g., "world_data", "company_info", etc).
    - `description`: What insight the user gains from this sort
    - `interestingness`: A number between 0 and 1 estimating how insightful this sort might be
@@ -40,6 +41,7 @@ Respond ONLY and ONLY in the following JSON format (don't include backticks or m
   "(base_column_1)": [
     {{
       "column": "...",
+      "name": "...",
       "table": "...",
       "description": "...",
       "interestingness": 0.0-1.0,
@@ -47,6 +49,7 @@ Respond ONLY and ONLY in the following JSON format (don't include backticks or m
     }},
     {{
       "column": "...",
+      "name": "...",
       "table": "...",
       "description": "...",
       "interestingness": 0.0-1.0,
@@ -56,6 +59,7 @@ Respond ONLY and ONLY in the following JSON format (don't include backticks or m
   "(base_column_2)": [
     {{
       "column": "...",
+      "name": "...",
       "table": "...",
       "description": "...",
       "interestingness": 0.0-1.0,

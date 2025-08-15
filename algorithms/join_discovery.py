@@ -110,12 +110,15 @@ def discover_augmentable_column(
     input_table_minhash,
     input_table_semantic_type_embeddings,
     datalake: Dict[str, pd.DataFrame],
-    semantic_type_index: Dict[str, Dict[str, str]],
+    semantic_types: Dict[str, Dict[str, str]],
     minhashes,
     semantic_type_hnsw_index,
     base_col,
     top_k,
-    min_joinability_distance_threshold
+    min_joinability_distance_threshold,
+
+    semantic_distance_threshold_for_datalake_column_mapping,
+    cosine_distance_threshold_for_existing_column_mapping
 ) -> Optional[Dict[str, Any]]:
     '''Try to find joinable column in the datalake that provides the suggested attribute'''
 
@@ -123,8 +126,8 @@ def discover_augmentable_column(
     # cosine_distance_threshold_for_existing_column_mapping = 0.2
     # min_joinability_distance_threshold = 0.1
 
-    semantic_distance_threshold_for_datalake_column_mapping = 0.9
-    cosine_distance_threshold_for_existing_column_mapping = 0.2
+    # semantic_distance_threshold_for_datalake_column_mapping = 0.9
+    # cosine_distance_threshold_for_existing_column_mapping = 0.2
     
 
     # semantic_matches = semantic_index.query(embed_text(suggested_attribute), k = top_k)
@@ -144,7 +147,7 @@ def discover_augmentable_column(
             print(f"Table {table_name} not found in datalake.")
             exit(0)
 
-        attr_col_sem_type_embedding = embed_text(semantic_type_index[table_name][attr_col])
+        attr_col_sem_type_embedding = embed_text(semantic_types[table_name][attr_col])
         column_already_exists = False
         for input_col_name, input_col_embedding in input_table_semantic_type_embeddings.items():
             cosine_distance = _cosine_distance(attr_col_sem_type_embedding, input_col_embedding)

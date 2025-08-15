@@ -8,6 +8,8 @@ import traceback
 from pathlib import Path
 import pprint
 import json
+import hashlib
+import pickle
 
 import duckdb
 import pandas as pd
@@ -21,7 +23,7 @@ from algorithms import sql_gen
 # ── Your existing modules ─────────────────────────────────────────────────────
 from algorithms import prompts, embedding_utils
 from algorithms import infer_type
-from algorithms.llm_utils import call_gpt, parse_suggestion
+from algorithms.llm_utils import call_gpt, parse_suggestion, extract_json_object
 from algorithms.index_builder import build_indexes_from_datalake, load_indexes
 from algorithms.join_discovery import discover_augmentable_column
 from algorithms.semantic_score import (
@@ -115,10 +117,58 @@ def export_df(df: pd.DataFrame, out_path: Path | None):
     print(f"✅ Saved to {out_path}")
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Cache helper for augmented SQL results
+# ──────────────────────────────────────────────────────────────────────────────
+def read_augmented_sql_cache(augment_data: dict, cached: bool):
+    """
+    Load augmented SQL + DataFrame from a pickle cache if available and requested.
+    Otherwise, compute using compute_fn(), persist to cache, and return the result.
+
+    Cache location: ./llmcache/augmented_sql_cache/<sha256(augment_data)>.pkl
+    Payload format: {"sql": str, "df": pandas.DataFrame}
+    """
+    if not cached:
+        return None
+    cache_dir = Path.cwd() / "augmented_sql_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    cache_key_src = json.dumps(augment_data, sort_keys=True, default=str)
+
+    cache_hash = hashlib.sha256(cache_key_src.encode("utf-8")).hexdigest()
+    cache_path = cache_dir / f"{cache_hash}.pkl"
+
+    # Fast path: return cached when requested and present
+    if cached and cache_path.exists():
+        with open(cache_path, "rb") as f:
+            payload = pickle.load(f)
+        return payload["sql"], payload["df"]
+
+    return None
+
+def save_augmented_sql_cache(augment_data: dict, sql: str, df: pd.DataFrame, cached):
+    """
+    Save augmented SQL + DataFrame to a pickle cache.
+    Cache location: ./llmcache/augmented_sql_cache/<sha256(augment_data)>.pkl
+    Payload format: {"sql": str, "df": pandas.DataFrame}
+    """
+    cache_dir = Path.cwd() / "augmented_sql_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    cache_key_src = json.dumps(augment_data, sort_keys=True, default=str)
+
+    cache_hash = hashlib.sha256(cache_key_src.encode("utf-8")).hexdigest()
+    cache_path = cache_dir / f"{cache_hash}.pkl"
+
+    payload = {"sql": sql, "df": df}
+
+    with open(cache_path, "wb") as f:
+        pickle.dump(payload, f)
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Core workflow
 # ──────────────────────────────────────────────────────────────────────────────
 def read_csv_safely(path: Path) -> pd.DataFrame:
-    remove_non_utf8_lines(path)
+    # remove_non_utf8_lines(path)
     return pd.read_csv(path, on_bad_lines='skip', dtype=str)
 
 # ───────────────────────── worker for one CSV ─────────────────────────
@@ -202,13 +252,18 @@ def generate_suggestions(
         all_minhashes, 
         data_lake: dict[str, pd.DataFrame], 
         index_dir: Path, 
-        table_descriptions: list[dict[str, str]]
+        table_descriptions: list[dict[str, str]],
+        semantic_distance_threshold_for_datalake_column_mapping,
+        cosine_distance_threshold_for_existing_column_mapping,
+        semantic_types
         ) -> tuple[pd.DataFrame, dict]:
     """
     Calls LLM to generate suggestions, filters/augments where needed,
     enriches with semantic scores; returns (suggestions_df, augmentation_cache)
     """
     column_names = list(input_table.columns)
+
+    input_table_semantic_types = semantic_type_extractor.infer_semantic_types_for_df(df=input_table)
 
     joinable_tables = table_description_builder.table_filter_using_minhash(
         input_table_minhash=input_table_minhash,
@@ -256,7 +311,7 @@ def generate_suggestions(
         all_suggestions[base_col] = unique_suggestions
 
     # Load indexes once
-    join_index, semantic_index, semantic_types, semantic_type_hnsw_index = load_indexes(index_dir)
+    semantic_types, semantic_type_hnsw_index, all_minhashes, all_table_descriptions = load_indexes(index_dir)
 
     augmentation_cache = {}
     rows = []
@@ -268,24 +323,24 @@ def generate_suggestions(
     for base_col, sort_list in all_suggestions.items():
         for s in sort_list:
             # print(f"Evaluating suggestion for base column '{base_col}'")
-            sort_attr   = s["column"]
             # print(f"  Sort Attribute: {sort_attr}")
             col_present = (s["column present in the table"] == "Yes")
+            sort_attr = s["column"]
             if not col_present:
                 aug = discover_augmentable_column(
-                    sort_attr,
-                    input_table,                                  # input table
-                    input_table_minhash,
-                    input_table_semantic_type_embeddings,
-                    data_lake,
-                    semantic_index,
-                    join_index,
-                    semantic_types,
-                    all_minhashes,
-                    semantic_type_hnsw_index,
-                    base_col,
-                    5,
-                    min_joinability_distance_threshold
+                    suggested_attribute=sort_attr,
+                    input_table=input_table,                                  # input table
+                    input_table_minhash=input_table_minhash,
+                    input_table_semantic_type_embeddings=input_table_semantic_type_embeddings,
+                    datalake=data_lake,
+                    semantic_types=semantic_types,
+                    minhashes=all_minhashes,
+                    semantic_type_hnsw_index=semantic_type_hnsw_index,
+                    base_col=base_col,
+                    top_k=5,
+                    min_joinability_distance_threshold=min_joinability_distance_threshold,
+                    semantic_distance_threshold_for_datalake_column_mapping=semantic_distance_threshold_for_datalake_column_mapping,
+                    cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping
                 )
                 if aug is None:
                     # skip suggestions that can't be satisfied
@@ -294,10 +349,10 @@ def generate_suggestions(
 
             rows.append({
                 "Base Column":     base_col,
-                "Sort Attribute":  sort_attr,
+                "Sort Attribute": s["column"],
+                "Sort Attribute Name":  s["name"],
                 "Description":     s["description"],
                 "Interestingness": s["interestingness"],
-                "Required Column": s["column"],
                 "Column present":  "Yes" if col_present else "No",
                 "Matched Column": sort_attr if col_present else aug['matched_column'],
                 "Matched Table":   "input_table" if col_present else aug['matched_table'],
@@ -308,11 +363,126 @@ def generate_suggestions(
         raise RuntimeError("No viable suggestions after augmentation checks.")
 
     suggestions_df = pd.DataFrame(rows)
+
+    # Sort suggestions_df by Interestingness in descending order
+    suggestions_df = suggestions_df.sort_values(by="Interestingness", ascending=False).drop_duplicates(subset=["Matched Table", "Matched Column"]).reset_index(drop=True)
+
     input_cols = list(suggestions_df.columns)
     print("update_suggestions_with_semantic_scores")
-    suggestions_df = update_suggestions_with_semantic_scores(suggestions_df, input_cols)
+    # suggestions_df = update_suggestions_with_semantic_scores(suggestions_df, input_cols)
+    suggestions_df = update_suggestions_with_interestingness_score(
+        suggestions_df=suggestions_df, input_df=input_table, input_df_semantic_types=input_table_semantic_types, all_semantic_types=semantic_types, data_lake=data_lake)
     suggestions_df.index = suggestions_df.index + 1  # 1-based display
     return suggestions_df, augmentation_cache
+
+def update_suggestions_with_interestingness_score(suggestions_df: pd.DataFrame, input_df, input_df_semantic_types, all_semantic_types, data_lake) -> pd.DataFrame:
+    """
+    Re-score each suggestion's Interestingness using GPT, incorporating semantic-type context
+    for input columns and (if applicable) matched data lake columns.
+
+    Parameters
+    ----------
+    suggestions_df : pd.DataFrame
+        Must contain columns: ["Base Column", "Sort Attribute", "Description", "Column present",
+        "Matched Table", "Matched Column", "Interestingness"].
+    input_df : pd.DataFrame
+        The original input table.
+    input_df_semantic_types : dict[str, str]
+        Mapping of input_df column names to their semantic type strings.
+    all_semantic_types : dict[str, dict[str, str]]
+        Mapping of datalake table -> column -> semantic type.
+
+    Returns
+    -------
+    pd.DataFrame
+        The same dataframe with the "Interestingness" column replaced by GPT-assigned scores (floats).
+    """
+
+    input_columns_string = ""
+    for idx, col in enumerate(input_df.columns):
+        input_columns_string += f"Column name: {col}, description: {input_df_semantic_types[col]}\n"
+
+    suggestions_string = ""
+    for idx, row in suggestions_df.iterrows():
+        base_col = row["Base Column"]
+        sort_attr = row["Sort Attribute"]
+        sort_attr_name = row["Sort Attribute Name"]
+        matched_table = row["Matched Table"]
+        matched_col = row["Matched Column"]
+        col_present = row["Column present"]
+
+        if matched_table == "input_table":
+            examples = input_df[matched_col].dropna().unique()[:5]  # Get up to 5 examples
+        else:
+            examples = data_lake[matched_table][matched_col].dropna().unique()[:5]  # Get up to 5 examples
+
+        if matched_table == "input_table":
+            # If matched table is input_table, use its semantic type directly
+            matched_sem_type = input_df_semantic_types[matched_col]
+        else:
+            matched_sem_type = all_semantic_types[str(matched_table)][str(matched_col)]
+
+        suggestions_string += f"""
+Suggestion ID: {idx + 1}
+Suggestion By Human: {sort_attr_name}
+Column present in input table: {col_present}
+Best Match Column from the data lake: {matched_sem_type}
+Best Match Value Examples: {examples}
+"""
+
+    prompt = f"""
+You are a careful data assistant. A user has upload a table and the names of the columns are as below:
+
+{input_columns_string}
+
+You are also given a list of columns that are suggested by a human expert for sorting. These suggestions may or may not be in the input table. These suggestions are interesting ways to sort the input table.
+Each suggestion has a best match column from a data lake, which is the closest match to the suggested column name. The best match column is either in the input table or in a seperate data lake table.
+Ultimately, the best match column will be used to sort the input table after a join with the data lake table.
+
+{suggestions_string}
+
+Your task is to assign an interestingness score in [0,1] to each suggestion based on the following criteria:
+- How semantically interesting it would be to sort using that attribute for this specific input table.
+- Whether the matched data lake column closely matches the human given suggestion; better alignment => higher interestingness; poor alignment => lower interestingness.
+- If the example values are categorical, it should be scored very low. Numeric values are more interesting for sorting.
+- If the suggestion already matches a column in the input table but the suggestion is not present in the input table, it should be scored lower.
+- The interestingness score across all suggestions should be normalized to [0, 1] range.
+- For every suggestion, return an object with fields: "Suggestion Id", "Suggestion By Human", "Interestingness", "Reason of Score".
+- Do not explain; output only a JSON array of objects.
+
+
+Output format (strict JSON array):
+[
+  {{ "Suggestion Id": <string>, "Suggestion By Human": <string>, "Interestingness": <float>, "Reason of Score": <string> }},
+]
+"""
+    
+    print(prompt)
+    print_df(suggestions_df.drop(columns=['Description']), max_rows=100)
+
+    # Call GPT and parse JSON
+    gpt_raw = call_gpt(prompt)
+    
+    payload = extract_json_object(gpt_raw)
+
+    pprint.pprint(payload)
+
+    # Map scores by id
+    id_to_score = {}
+    for obj in payload:
+        rid = obj["Suggestion Id"]
+        score = float(obj["Interestingness"])
+        id_to_score[rid] = score
+
+    pprint.pprint(id_to_score)
+
+    for idx, row in suggestions_df.iterrows():
+        suggestions_df.at[idx, "Interestingness"] = id_to_score[str(idx+1)]  # 1-based index in GPT response
+
+    suggestions_df = suggestions_df.sort_values(by="Interestingness", ascending=False).reset_index(drop=True)
+
+    return suggestions_df
+
 
 def show_suggestions_and_pick(df_input: pd.DataFrame, suggestions_df: pd.DataFrame) -> tuple[int, pd.Series, float]:
     print_rule("🔍 Sorting Suggestions (sorted by Interestingness desc)")
@@ -362,12 +532,11 @@ def generate_sort_sql_and_run(con, df_input: pd.DataFrame, selected_row: pd.Seri
     base_col     = selected_row["Base Column"]
     sort_attr    = selected_row["Sort Attribute"]
     description  = selected_row["Description"]
-    required_col = selected_row["Required Column"]
     input_cols   = list(df_input.columns)
 
     sql_prompt = prompts.generate_single_table_sql_prompt(
         input_cols=input_cols,
-        required_col=required_col,
+        required_col=sort_attr,
         description=description,
         base_col=base_col
     )
@@ -385,13 +554,28 @@ def generate_sort_sql_and_run(con, df_input: pd.DataFrame, selected_row: pd.Seri
 def generate_augmented_sql_and_run(con,
                                    df_input: pd.DataFrame,
                                    data_lake: dict[str, pd.DataFrame],
-                                   augment_data: dict) -> tuple[str, pd.DataFrame]:
+                                   augment_data: dict,
+                                   cached: bool = False) -> tuple[str, pd.DataFrame]:
+    """
+    Build and run augmented SQL joining input_table with a datalake table based on augment_data.
+    Caching is delegated to with_augmented_sql_cache().
+    """
+
+    cache_result = read_augmented_sql_cache(augment_data=augment_data, cached=cached)
+
+    if cache_result is not None:
+        sql, out_df = cache_result
+        print_rule("Using cached augmented SQL")
+        return sql, out_df
+
     datalake_table_name = augment_data["matched_table"]
     input_table_key     = augment_data["join_key_input"]
     datalake_table_key  = augment_data["join_key_datalake"]
     sort_by_column      = augment_data["matched_column"]
 
-    typed_df, inferred = infer_type.infer_and_cast_df(data_lake[datalake_table_name], percent_scale=True)
+    typed_df, _inferred = infer_type.infer_and_cast_df(
+        data_lake[datalake_table_name], percent_scale=True
+    )
 
     sql = sql_gen.build_augmented_sql(
         datalake_table_name=datalake_table_name,
@@ -399,17 +583,24 @@ def generate_augmented_sql_and_run(con,
         join_key_datalake=datalake_table_key,
         sort_cols=[sort_by_column],
         input_dataframe=df_input,
-        datalake_dataframe=typed_df
-        )
+        datalake_dataframe=typed_df,
+    )
 
     print_rule("🧾 Generated Augmented SQL")
     print(sql, "\n")
 
     # Register the datalake table in DuckDB under its table name
-
     con.register(datalake_table_name, typed_df)
 
     out_df = con.execute(sql).df()
+
+    save_augmented_sql_cache(
+        augment_data=augment_data,
+        sql=sql,
+        df=out_df,
+        cached=cached
+        )
+
     return sql, out_df
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -417,6 +608,10 @@ def generate_augmented_sql_and_run(con,
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main():
+
+    semantic_distance_threshold_for_datalake_column_mapping = 0.9
+    cosine_distance_threshold_for_existing_column_mapping = 0.2
+
     parser = argparse.ArgumentParser(
         description="InsightSort (CLI) — discover interesting sort attributes and optionally augment data from a data-lake."
     )
@@ -427,12 +622,14 @@ def main():
     parser.add_argument("--print-json", action="store_true", help="Print the chosen suggestion record as JSON before running SQL.")
     args = parser.parse_args()
 
+    print("Welcome to InsightSort CLI! This tool helps you discover interesting sort attributes and augment data from a data-lake.")
     datalakes_root = Path(args.datalakes_root)
     if not datalakes_root.exists():
         eprint(f"❌ Datalakes root not found: {datalakes_root}")
         sys.exit(1)
 
     # Pick data-lake
+    print_rule("Available data-lakes:")
     available = list_dir_names(datalakes_root)
     if not available:
         eprint(f"❌ No data-lakes found under {datalakes_root}")
@@ -477,8 +674,19 @@ def main():
     start_time = time.time()
     input_table_minhash = minhash_builder.build_minhashes(datalake={'input_table': df_input}, parallel_enabled=False)['input_table']
     all_minhashes = minhash_builder.load_minhashes(index_dir)
+    all_semantic_types = semantic_type_extractor.load_semantic_types(index_dir)
 
-    suggestions_df, augmentation_cache = generate_suggestions(df_input, input_table_minhash, all_minhashes, data_lake, index_dir, table_descriptions)
+    suggestions_df, augmentation_cache = generate_suggestions(
+        df_input,
+        input_table_minhash,
+        all_minhashes,
+        data_lake,
+        index_dir,
+        table_descriptions,
+        semantic_distance_threshold_for_datalake_column_mapping,
+        cosine_distance_threshold_for_existing_column_mapping,
+        semantic_types=all_semantic_types
+        )
     # Remove duplicate rows based on 'Base Column' and 'Matched Column'
     suggestions_df = suggestions_df.drop_duplicates(subset=['Base Column', 'Matched Column'])
     end_time = time.time()
@@ -519,7 +727,7 @@ def main():
                 continue
             filename = augment_dir / f"{order_num}_augmentation_{base_col}__{sort_attr}.txt"
 
-            _, out_df = generate_augmented_sql_and_run(con, df_input, data_lake, aug)
+            _, out_df = generate_augmented_sql_and_run(con, df_input, data_lake, aug, cached=False)
 
             with open(filename, "w", encoding="utf-8") as f:
                 f.write(f"Base Column:                      {base_col}\n")
@@ -573,7 +781,7 @@ def main():
             print(f"Join Distance:           {float(aug['join_distance']):.4f}")
 
             if yes_no("\nApply augmentation and run augmented SQL?"):
-                sql, out_df = generate_augmented_sql_and_run(con, df_input, data_lake, aug)
+                sql, out_df = generate_augmented_sql_and_run(con, df_input, data_lake, aug, cached=False)
                 print_rule("Augmented result")
                 default_max_rows = 100
                 print(f"Showing up to {default_max_rows} rows as a sample.")

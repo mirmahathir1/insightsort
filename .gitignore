@@ -7,3 +7,4 @@ datalakes/mitdwh_datalake
 results
 augmentations_*
 .nfs*
+augmented_sql_cache
