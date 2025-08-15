@@ -178,3 +178,8 @@ def build_indexes_from_datalake(datalake: dict[str, pd.DataFrame], save_dir: str
         descriptions = table_description_builder.generate_all_table_descriptions(datalake, semantic_types)
         table_description_builder.save_table_descriptions(descriptions, save_dir)
 
+    if not semantic_type_extractor.does_semantic_type_embeddings_exist(save_dir):
+        semantic_type_embeddings = semantic_type_extractor.build_semantic_type_embeddings_for_datalake(semantic_types)
+        semantic_type_extractor.save_semantic_type_embeddings(semantic_type_embeddings, save_dir, verbose=verbose)
+
+

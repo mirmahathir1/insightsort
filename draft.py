@@ -63,18 +63,16 @@ table_descriptions = table_description_builder.load_table_descriptions(save_dir=
 
 all_semantic_types = semantic_type_extractor.load_semantic_types(index_dir)
 
-suggestions_df, _ = cli_only.generate_suggestions(
+suggestions_df, _ = cli_only.generate_numeric_column_suggestions(
     input_table=df_input,
 	input_table_minhash=input_table_minhash,
 	all_minhashes=all_minhashes,
 	data_lake=data_lake,
-	index_dir=index_dir,
 	table_descriptions=table_descriptions,
-	semantic_distance_threshold_for_datalake_column_mapping=semantic_distance_threshold_for_datalake_column_mapping,
 	cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping,
 	semantic_types=all_semantic_types
 )
 
 print("💡 Suggestions generated:")
 
-cli_only.print_df(suggestions_df.drop(columns=['Description']), max_rows=20)
+cli_only.print_df(suggestions_df[['Augmented Column', 'description', 'Source Table', 'interestingness']], max_rows=1000)

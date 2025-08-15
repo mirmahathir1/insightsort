@@ -1,304 +1,1386 @@
 {
-    "Department Name": [
-        {
-            "column": "average_enrollment",
-            "name": "Average class enrollment",
-            "table": "Subject_offered_summary",
-            "description": "Ranks departments by the average number of students enrolled in their subjects, highlighting which attract larger classes.",
-            "interestingness": 0.87,
-            "column present in the table": "No"
-        },
-        {
-            "column": "subjects_offered_count",
-            "name": "Total subjects offered",
-            "table": "Subject_offered_summary",
-            "description": "Compares the breadth of curriculum across departments by total subjects offered.",
-            "interestingness": 0.8,
-            "column present in the table": "No"
-        },
-        {
-            "column": "enrollment_growth_rate",
-            "name": "Enrollment growth rate",
-            "table": "Subject_summary",
-            "description": "Identifies departments with the fastest-growing student interest over recent terms.",
-            "interestingness": 0.83,
-            "column present in the table": "No"
-        },
-        {
-            "column": "avg_units_per_subject",
-            "name": "Average units per subject",
-            "table": "Subject_summary",
-            "description": "Shows which departments typically offer heavier or lighter credit loads.",
-            "interestingness": 0.68,
-            "column present in the table": "No"
-        },
-        {
-            "column": "graduate_subject_share",
-            "name": "Share of graduate-level subjects",
-            "table": "Sis_course_description",
-            "description": "Reveals how graduate-focused each department’s curriculum is.",
-            "interestingness": 0.74,
-            "column present in the table": "No"
-        },
-        {
-            "column": "prerequisite_rate",
-            "name": "Share of subjects requiring prerequisites",
-            "table": "Course_catalog_subject_offered",
-            "description": "Gauges how advanced or sequential a department’s curriculum tends to be.",
-            "interestingness": 0.7,
-            "column present in the table": "No"
-        },
-        {
-            "column": "active_instructor_count",
-            "name": "Active instructors count",
-            "table": "Subjects_offered",
-            "description": "Ranks departments by how many instructors are teaching in the current term.",
-            "interestingness": 0.76,
-            "column present in the table": "No"
-        },
-        {
-            "column": "organizational_level",
-            "name": "Organizational level in hierarchy",
-            "table": "Hr_org_unit_new",
-            "description": "Orders departments by their level in the HR organizational hierarchy (higher-level units vs sub-units).",
-            "interestingness": 0.55,
-            "column present in the table": "No"
-        },
-        {
-            "column": "hierarchy_depth",
-            "name": "Hierarchy depth",
-            "table": "Master_dept_hierarchy",
-            "description": "Shows how deep in the institutional hierarchy each department sits.",
-            "interestingness": 0.5,
-            "column present in the table": "No"
-        },
-        {
-            "column": "total_subjects_offered",
-            "name": "Number of subjects offered",
-            "table": "Tip_subject_offered",
-            "description": "Sort departments by how many subjects they offer across recent terms to reveal curricular breadth.",
-            "interestingness": 0.88,
-            "column present in the table": "No"
-        },
-        {
-            "column": "total_enrollment",
-            "name": "Total subject enrollment",
-            "table": "Tip_subject_offered",
-            "description": "Sort departments by the cumulative enrollment in their subjects to see overall student reach.",
-            "interestingness": 0.9,
-            "column present in the table": "No"
-        },
-        {
-            "column": "average_class_size",
-            "name": "Average class size",
-            "table": "Library_subject_offered",
-            "description": "Sort departments by average enrollment per subject to compare typical class sizes across units.",
-            "interestingness": 0.78,
-            "column present in the table": "No"
-        },
-        {
-            "column": "faculty_count",
-            "name": "Faculty headcount",
-            "table": "Hr_faculty_roster",
-            "description": "Sort departments by number of affiliated faculty to gauge teaching and research capacity.",
-            "interestingness": 0.84,
-            "column present in the table": "No"
-        },
-        {
-            "column": "child_department_count",
-            "name": "Number of child departments/programs",
-            "table": "Master_dept_dcode_parent",
-            "description": "Sort by how many sub-units roll up to each department, highlighting organizational breadth.",
-            "interestingness": 0.72,
-            "column present in the table": "No"
-        },
-        {
-            "column": "space_unit_count",
-            "name": "Count of associated space units",
-            "table": "Space_unit",
-            "description": "Sort departments by the number of linked space units to approximate the dispersion of their physical footprint.",
-            "interestingness": 0.65,
-            "column present in the table": "No"
-        },
-        {
-            "column": "iap_sponsored_subjects_count",
-            "name": "IAP subjects sponsored",
-            "table": "Iap_subject_sponsor",
-            "description": "Sort departments by how many IAP offerings they sponsor to surface extracurricular and short-term program activity.",
-            "interestingness": 0.6,
-            "column present in the table": "No"
-        }
-    ],
-    "Primary Title": [
-        {
-            "column": "instructor_rate_by_title",
-            "name": "Share of individuals with this title who are instructors",
-            "table": "Subjects_offered",
-            "description": "Highlights which titles are most commonly associated with teaching responsibilities.",
-            "interestingness": 0.69,
-            "column present in the table": "No"
-        },
-        {
-            "column": "median_enrollment_of_courses_taught_by_title",
-            "name": "Median enrollment of courses taught by this title",
-            "table": "Subject_offered_summary",
-            "description": "Shows which titles tend to teach larger or smaller classes.",
-            "interestingness": 0.66,
-            "column present in the table": "No"
-        },
-        {
-            "column": "avg_units_taught_by_title",
-            "name": "Average units of subjects taught by this title",
-            "table": "Subject_summary",
-            "description": "Compares typical credit loads for courses taught by people with each title.",
-            "interestingness": 0.6,
-            "column present in the table": "No"
-        },
-        {
-            "column": "median_org_level_of_home_dept_by_title",
-            "name": "Median organizational level of home department",
-            "table": "Hr_org_unit_new",
-            "description": "Indicates whether certain titles cluster in higher- or lower-level organizational units.",
-            "interestingness": 0.52,
-            "column present in the table": "No"
-        },
-        {
-            "column": "avg_office_building_access_level_by_title",
-            "name": "Average office building access level",
-            "table": "Fclt_building",
-            "description": "Reveals the typical security level of buildings where people with each title sit.",
-            "interestingness": 0.58,
-            "column present in the table": "No"
-        },
-        {
-            "column": "academic_rank_level",
-            "name": "Academic rank seniority",
-            "table": "Hr_faculty_roster",
-            "description": "Order titles by academic rank where applicable (e.g., Assistant < Associate < Full) to align rows by seniority.",
-            "interestingness": 0.7,
-            "column present in the table": "No"
-        },
-        {
-            "column": "subjects_taught_count",
-            "name": "Average subjects taught by title",
-            "table": "Tip_subject_offered",
-            "description": "Sort titles by the average number of subjects taught by people with that title, revealing typical teaching loads for each title group.",
-            "interestingness": 0.62,
-            "column present in the table": "No"
-        },
-        {
-            "column": "average_enrollment_by_title",
-            "name": "Average enrollment per title",
-            "table": "Tip_subject_offered",
-            "description": "Sort titles by the average enrollment of courses taught by people with that title to compare instructional impact across roles.",
-            "interestingness": 0.58,
-            "column present in the table": "No"
-        }
-    ],
     "Full Name": [
         {
-            "column": "subjects_taught_count",
-            "name": "Subjects taught",
+            "column": "Academic Year",
+            "table": "Course_catalog_subject_offered",
+            "description": "Sort people by the most recent academic year in which they appear as responsible faculty for offered subjects.",
+            "interestingness": 0.55
+        },
+        {
+            "column": "Subject Id",
+            "table": "Course_catalog_subject_offered",
+            "description": "Group instructors by the subjects they are tied to; mildly informative by course association.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Subject Number",
+            "table": "Course_catalog_subject_offered",
+            "description": "Sort instructors by the numeric sequence of subjects taught; weak semantic value.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Source Subject Id",
+            "table": "Course_catalog_subject_offered",
+            "description": "Source identifier grouping of subjects taught; minimally informative.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Lecture Units",
+            "table": "Course_catalog_subject_offered",
+            "description": "Rank instructors by the lecture-unit intensity of subjects they are responsible for.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Lab Units",
+            "table": "Course_catalog_subject_offered",
+            "description": "Rank instructors by the lab emphasis of the subjects they oversee.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Preparation Units",
+            "table": "Course_catalog_subject_offered",
+            "description": "Sort instructors by prep-unit load of their subjects.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Total Units",
+            "table": "Course_catalog_subject_offered",
+            "description": "Order instructors by total subject unit load associated with their offerings.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Design Units",
+            "table": "Course_catalog_subject_offered",
+            "description": "Prioritize instructors whose subjects have higher design emphasis.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Equivalent Subjects",
+            "table": "Course_catalog_subject_offered",
+            "description": "Sort instructors by presence of cross-listed/equivalent subjects they manage.",
+            "interestingness": 0.25
+        },
+        {
+            "column": "Responsible Faculty Mit Id",
+            "table": "Course_catalog_subject_offered",
+            "description": "Group/flag people who serve as responsible faculty in the offered-subject catalog.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Subject Enrollment Number",
             "table": "Subjects_offered",
-            "description": "Ranks individuals by the number of subjects they teach in the current term.",
-            "interestingness": 0.75,
-            "column present in the table": "No"
+            "description": "Sort instructors by total subject enrollments associated with them.",
+            "interestingness": 0.7
         },
         {
-            "column": "avg_enrollment_of_their_courses",
-            "name": "Average enrollment of their courses",
-            "table": "Subject_offered_summary",
-            "description": "Orders instructors by the typical class size of their offerings.",
-            "interestingness": 0.73,
-            "column present in the table": "No"
+            "column": "Section Enrollment Number",
+            "table": "Subjects_offered",
+            "description": "Rank instructors by section-level enrollments tied to their teaching.",
+            "interestingness": 0.75
         },
         {
-            "column": "office_building_access_level",
-            "name": "Office building access level",
-            "table": "Fclt_building",
-            "description": "Sorts people by the security level of their office building.",
-            "interestingness": 0.62,
-            "column present in the table": "No"
+            "column": "Cluster Enrollment Number",
+            "table": "Subjects_offered",
+            "description": "Sort instructors by cluster enrollments linked to their offerings.",
+            "interestingness": 0.6
         },
         {
-            "column": "office_building_age_years",
-            "name": "Office building age (years)",
-            "table": "Fclt_building_hist_1",
-            "description": "Orders people by whether they sit in older or newer facilities.",
-            "interestingness": 0.57,
-            "column present in the table": "No"
+            "column": "Num Enrolled Students",
+            "table": "Subjects_offered",
+            "description": "General enrollment measure to rank instructors by student counts.",
+            "interestingness": 0.65
         },
         {
-            "column": "office_building_gross_floor_area",
-            "name": "Office building gross floor area",
-            "table": "Buildings",
-            "description": "Ranks people by the size of the building where they are located.",
-            "interestingness": 0.55,
-            "column present in the table": "No"
+            "column": "Academic Year",
+            "table": "Cis_course_catalog",
+            "description": "Order people by years their courses appear in the catalog (recency/tenure of teaching).",
+            "interestingness": 0.5
         },
         {
-            "column": "dept_organizational_level",
-            "name": "Organizational level of home department",
-            "table": "Hr_org_unit_new",
-            "description": "Sorts individuals by how high-level their home department is within the HR hierarchy.",
-            "interestingness": 0.5,
-            "column present in the table": "No"
+            "column": "Subject Id",
+            "table": "Cis_course_catalog",
+            "description": "Group by specific catalog subjects taught; limited on its own.",
+            "interestingness": 0.15
         },
         {
-            "column": "department_subjects_offered_count",
-            "name": "Total subjects offered by their department",
-            "table": "Subject_offered_summary",
-            "description": "Indirectly ranks people by the breadth of curriculum in their home departments.",
-            "interestingness": 0.6,
-            "column present in the table": "No"
+            "column": "Subject Number",
+            "table": "Cis_course_catalog",
+            "description": "Sort instructors by numeric sequence of subjects in the catalog.",
+            "interestingness": 0.1
         },
         {
-            "column": "subjects_taught_count",
-            "name": "Number of subjects taught",
-            "table": "Tip_subject_offered",
-            "description": "Sort people by how many subjects they are listed to teach across terms, highlighting teaching load and breadth.",
-            "interestingness": 0.86,
-            "column present in the table": "No"
+            "column": "Lecture Units",
+            "table": "Cis_course_catalog",
+            "description": "Rank instructors by lecture emphasis in the central catalog.",
+            "interestingness": 0.3
         },
         {
-            "column": "total_students_taught",
-            "name": "Total students taught",
-            "table": "Tip_subject_offered",
-            "description": "Sort people by the cumulative enrollment of the subjects they teach to see overall classroom impact.",
-            "interestingness": 0.83,
-            "column present in the table": "No"
+            "column": "Lab Units",
+            "table": "Cis_course_catalog",
+            "description": "Rank instructors by lab emphasis in the central catalog.",
+            "interestingness": 0.3
         },
         {
-            "column": "average_class_enrollment",
-            "name": "Average class size of courses taught",
+            "column": "Preparation Units",
+            "table": "Cis_course_catalog",
+            "description": "Order instructors by preparation-unit intensity across catalog subjects.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Total Units",
+            "table": "Cis_course_catalog",
+            "description": "Order instructors by total units of catalog-listed courses.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Design Units",
+            "table": "Cis_course_catalog",
+            "description": "Highlight instructors associated with design-heavy catalog subjects.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Academic Year",
+            "table": "Drupal_course_catalog",
+            "description": "Sort people by activity across Drupal catalog academic years (recency).",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Subject Id",
+            "table": "Drupal_course_catalog",
+            "description": "Group instructors by Drupal subject identifiers; minimally semantic.",
+            "interestingness": 0.15
+        },
+        {
+            "column": "Subject Number",
+            "table": "Drupal_course_catalog",
+            "description": "Sort instructors by subject numbering in Drupal catalog; weak signal.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Source Subject Id",
+            "table": "Drupal_course_catalog",
+            "description": "Source-level grouping of subjects taught; low semantic value.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Print Subject Id",
+            "table": "Drupal_course_catalog",
+            "description": "Print ID for subjects; not meaningful for sorting people.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Lecture Units",
+            "table": "Drupal_course_catalog",
+            "description": "Rank instructors by lecture credits in Drupal-listed subjects.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Lab Units",
+            "table": "Drupal_course_catalog",
+            "description": "Rank instructors by lab credits in Drupal-listed subjects.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Preparation Units",
+            "table": "Drupal_course_catalog",
+            "description": "Order instructors by prep credit intensity in Drupal catalog.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Total Units",
+            "table": "Drupal_course_catalog",
+            "description": "Sort instructors by total credits associated with their Drupal-listed courses.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Design Units",
+            "table": "Drupal_course_catalog",
+            "description": "Highlight instructors with design-oriented credit loads.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Meets With Subjects",
+            "table": "Drupal_course_catalog",
+            "description": "Sort instructors by cross-listed/meeting-together patterns of their courses.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Master Subject Id",
+            "table": "Drupal_course_catalog",
+            "description": "Group instructors by master subject groupings; limited insight alone.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "So Subject Id",
+            "table": "Drupal_course_catalog",
+            "description": "Source metadata for subjects; not semantically useful for sorting people.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Responsible Faculty Mit Id",
+            "table": "Drupal_course_catalog",
+            "description": "Flag/aggregate presence of individuals as responsible faculty in Drupal catalog.",
+            "interestingness": 0.45
+        },
+        {
+            "column": "Mit Id",
+            "table": "Employee_directory",
+            "description": "Directory person identifier; mainly technical and not informative for sorting.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Office Phone",
+            "table": "Employee_directory",
+            "description": "Phone numbers do not convey semantic ordering for people/titles.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Mit Id",
+            "table": "Se_person",
+            "description": "Sort by employee ID (identifier with no semantic meaning).",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Mit Id",
+            "table": "Hr_faculty_roster",
+            "description": "Person identifier; not meaningful for semantic sorting of people, titles, or departments.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Responsible Faculty Mit Id",
             "table": "Library_subject_offered",
-            "description": "Sort by the average enrollment of each person’s courses to compare typical teaching scale.",
-            "interestingness": 0.68,
-            "column present in the table": "No"
+            "description": "Faculty ID; not inherently meaningful for sorting names or titles.",
+            "interestingness": 0.0
         },
         {
-            "column": "iap_participation_count",
-            "name": "IAP participation count",
-            "table": "Iap_subject_person",
-            "description": "Sort people by how many Independent Activities Period (IAP) offerings they participate in, signaling extracurricular teaching and engagement.",
-            "interestingness": 0.55,
-            "column present in the table": "No"
+            "column": "Num Enrolled Students",
+            "table": "Library_subject_offered",
+            "description": "Sort instructors by enrollment in their course offerings to highlight teaching reach/impact.",
+            "interestingness": 0.7
         },
         {
-            "column": "moira_list_memberships",
-            "name": "Moira list memberships",
+            "column": "Num Enrolled Students",
+            "table": "Tip_subject_offered",
+            "description": "Sort instructors by course enrollments (TIP data) to highlight teaching demand/impact.",
+            "interestingness": 0.7
+        },
+        {
+            "column": "Moira List Member Mit Id",
             "table": "Moira_list_detail",
-            "description": "Sort by the number of distribution lists a person belongs to as a proxy for cross-unit involvement and communication reach.",
-            "interestingness": 0.5,
-            "column present in the table": "No"
+            "description": "Identifier for mailing list membership; not directly meaningful for sorting people.",
+            "interestingness": 0.05
         },
         {
-            "column": "org_affiliations_count",
-            "name": "Organizational affiliations count",
+            "column": "Counter",
+            "table": "Moira_list_detail",
+            "description": "Placeholder counter; no semantic value for sorting.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Mit Id",
             "table": "Drupal_employee_directory",
-            "description": "Sort people by the count of organizational affiliations (e.g., joint roles or appointments), highlighting cross-departmental engagement.",
-            "interestingness": 0.6,
-            "column present in the table": "No"
+            "description": "Employee directory unique ID; not meaningful for semantic sorting.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Office Phone",
+            "table": "Drupal_employee_directory",
+            "description": "Sort people by phone area/prefix to infer campus vs. off-campus/remote location.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Mit Id",
+            "table": "Warehouse_users",
+            "description": "MIT ID; identifier not useful for semantic sorting.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Office Phone",
+            "table": "Warehouse_users",
+            "description": "Sort people by phone area/prefix to hint at location or unit contact patterns.",
+            "interestingness": 0.2
+        }
+    ],
+    "Department Name": [
+        {
+            "column": "Subject Code",
+            "table": "Course_catalog_subject_offered",
+            "description": "Order departments by MIT course code associated with their subjects.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Department Code",
+            "table": "Course_catalog_subject_offered",
+            "description": "Order departments by canonical department code (e.g., Course numbers).",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Subject Code",
+            "table": "Cis_course_catalog",
+            "description": "Order departments by course code within the catalog.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Department Code",
+            "table": "Cis_course_catalog",
+            "description": "Sort departments by the catalog department code mapping.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Subject Code",
+            "table": "Drupal_course_catalog",
+            "description": "Order departments by Drupal course code.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Department Code",
+            "table": "Drupal_course_catalog",
+            "description": "Sort departments by code used in the Drupal catalog.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Department Number",
+            "table": "Employee_directory",
+            "description": "Numeric department ID to group/sort departments; low semantic value.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Bldg Gross Square Footage",
+            "table": "Buildings",
+            "description": "Building size is not connected to the provided people/department rows.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Bldg Assignable Square Footage",
+            "table": "Buildings",
+            "description": "Assignable area isn’t relevant to sorting the input table.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Building Counter",
+            "table": "Buildings",
+            "description": "Building record counts do not inform sorting of people/titles/departments.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Total Units",
+            "table": "Subject_summary",
+            "description": "Order departments by the cumulative unit load of their subjects.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Lecture Units",
+            "table": "Subject_summary",
+            "description": "Sort departments by lecture-unit emphasis across offerings.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Lab Units",
+            "table": "Subject_summary",
+            "description": "Sort departments by lab-unit emphasis across offerings.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Prep Units",
+            "table": "Subject_summary",
+            "description": "Order departments by preparation-unit intensity of subjects.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Design Units",
+            "table": "Subject_summary",
+            "description": "Rank departments by design-oriented unit load.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Subject Enrollment Number",
+            "table": "Subject_summary",
+            "description": "Rank departments by subject-level enrollments.",
+            "interestingness": 0.6
+        },
+        {
+            "column": "Cluster Enrollment Number",
+            "table": "Subject_summary",
+            "description": "Sort departments by cluster-level enrollments.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Subject Enrollment First Week",
+            "table": "Subject_summary",
+            "description": "Order departments by first-week demand for their subjects.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Cluster Enrollment First Week",
+            "table": "Subject_summary",
+            "description": "Rank departments by initial cluster enrollments.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Subject Enrollment Fifth Week",
+            "table": "Subject_summary",
+            "description": "Order departments by stabilized (5th week) subject enrollments.",
+            "interestingness": 0.45
+        },
+        {
+            "column": "Cluster Enrollment Fifth Week",
+            "table": "Subject_summary",
+            "description": "Sort departments by later-term cluster enrollments.",
+            "interestingness": 0.45
+        },
+        {
+            "column": "Subject Enrollment Credit",
+            "table": "Subject_summary",
+            "description": "Rank departments by for-credit subject enrollments.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Subject Enrollment Listen",
+            "table": "Subject_summary",
+            "description": "Sort departments by listener/auditor demand for subjects.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Cluster Enrollment Credit",
+            "table": "Subject_summary",
+            "description": "Rank departments by for-credit enrollments in clusters.",
+            "interestingness": 0.45
+        },
+        {
+            "column": "Cluster Enrollment Listen",
+            "table": "Subject_summary",
+            "description": "Sort departments by auditing/listener interest in clusters.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Subject Enrollment 1St Credit",
+            "table": "Subject_summary",
+            "description": "Order departments by early for-credit demand for subjects.",
+            "interestingness": 0.45
+        },
+        {
+            "column": "Subject Enrollment 1St Listen",
+            "table": "Subject_summary",
+            "description": "Sort departments by early listener interest in subjects.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Cluster Enrollment 1St Credit",
+            "table": "Subject_summary",
+            "description": "Rank departments by early for-credit cluster enrollments.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Cluster Enrollment 1St Listen",
+            "table": "Subject_summary",
+            "description": "Order departments by early listener interest in clusters.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Subject Enrollment 5Th Credit",
+            "table": "Subject_summary",
+            "description": "Rank departments by sustained for-credit subject enrollments.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Subject Enrollment 5Th Listen",
+            "table": "Subject_summary",
+            "description": "Sort departments by sustained listener interest in subjects.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Cluster Enrollment 5Th Credit",
+            "table": "Subject_summary",
+            "description": "Order departments by sustained for-credit cluster enrollments.",
+            "interestingness": 0.45
+        },
+        {
+            "column": "Cluster Enrollment 5Th Listen",
+            "table": "Subject_summary",
+            "description": "Sort departments by sustained listener interest in clusters.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Fclt Organization Key",
+            "table": "Fclt_organization",
+            "description": "Facility org ID to group departments; limited semantics without names.",
+            "interestingness": 0.15
+        },
+        {
+            "column": "Organization Id",
+            "table": "Fclt_organization",
+            "description": "Generic organization ID for grouping; low insight alone.",
+            "interestingness": 0.15
+        },
+        {
+            "column": "Fclt Org Parent Key",
+            "table": "Fclt_organization",
+            "description": "Sort departments by their parent unit to reveal organizational clustering.",
+            "interestingness": 0.55
+        },
+        {
+            "column": "Major Org",
+            "table": "Fclt_organization",
+            "description": "Group/sort departments by major org affiliation.",
+            "interestingness": 0.25
+        },
+        {
+            "column": "Organization Level",
+            "table": "Fclt_organization",
+            "description": "Order units by hierarchy depth to surface central vs. subunits.",
+            "interestingness": 0.6
+        },
+        {
+            "column": "Organization Number",
+            "table": "Fclt_organization",
+            "description": "Sort by org numeric codes; modest structural insight.",
+            "interestingness": 0.25
+        },
+        {
+            "column": "Organization Sort",
+            "table": "Fclt_organization",
+            "description": "Apply enterprise-wide canonical org sort for departments.",
+            "interestingness": 0.55
+        },
+        {
+            "column": "Assignable",
+            "table": "Fclt_organization",
+            "description": "Sort departments by assignable status (active/assignable vs. not).",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Hr Department Code Old",
+            "table": "Fclt_organization",
+            "description": "Order departments by HR codes to align with HR taxonomy.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Hr Org Unit Id",
+            "table": "Fclt_organization",
+            "description": "Group/sort by HR org unit IDs; some structural meaning.",
+            "interestingness": 0.25
+        },
+        {
+            "column": "Hr Org Unit Id",
+            "table": "Hr_org_unit",
+            "description": "Org unit ID to group departments; modest utility.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Hr Department Id",
+            "table": "Hr_org_unit",
+            "description": "Department-level ID for grouping/sorting; limited semantics.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Hr Department Code Old",
+            "table": "Hr_org_unit",
+            "description": "Sort departments by legacy codes to reflect historical structure.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Hr Org Level1 Id",
+            "table": "Hr_org_unit",
+            "description": "Top-level org grouping; sort departments by L1 umbrella.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Hr Org Level1 Sort",
+            "table": "Hr_org_unit",
+            "description": "Apply canonical sort by top-level org ordering.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Hr Org Level2 Id",
+            "table": "Hr_org_unit",
+            "description": "Group/sort by second-level org affiliation.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Hr Org Level2 Sort",
+            "table": "Hr_org_unit",
+            "description": "Canonical sort within level 2 of the org hierarchy.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Hr Org Level3 Id",
+            "table": "Hr_org_unit",
+            "description": "Group by third-level org affiliation for departmental placement.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Hr Org Level3 Sort",
+            "table": "Hr_org_unit",
+            "description": "Sort departments according to level 3 hierarchy order.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Hr Org Level4 Id",
+            "table": "Hr_org_unit",
+            "description": "Group/sort by fourth-level org affiliation.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Hr Org Level4 Sort",
+            "table": "Hr_org_unit",
+            "description": "Canonical departmental ordering at level 4 of the hierarchy.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Hr Org Level5 Id",
+            "table": "Hr_org_unit",
+            "description": "Group/sort by fifth-level org affiliation (granular units).",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Hr Org Level5 Sort",
+            "table": "Hr_org_unit",
+            "description": "Apply canonical ordering at level 5 for fine-grained units.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Total Units",
+            "table": "Subject_offered_summary",
+            "description": "Sort departments by the overall subject units they offer to gauge teaching load/coverage.",
+            "interestingness": 0.6
+        },
+        {
+            "column": "Lecture Units",
+            "table": "Subject_offered_summary",
+            "description": "Order departments by emphasis on lecture-based instruction.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Lab Units",
+            "table": "Subject_offered_summary",
+            "description": "Order departments by lab-intensive coursework footprint.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Preparation Units",
+            "table": "Subject_offered_summary",
+            "description": "Rank departments by courses requiring significant independent preparation.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Subject Enrollment Number",
+            "table": "Subject_offered_summary",
+            "description": "Sort departments by subject enrollments to see student demand.",
+            "interestingness": 0.7
+        },
+        {
+            "column": "Cluster Enrollment Number",
+            "table": "Subject_offered_summary",
+            "description": "Prioritize departments by enrollment within subject clusters (linked offerings).",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Num Enrolled Students",
+            "table": "Subject_offered_summary",
+            "description": "Order departments by student headcount across their subjects.",
+            "interestingness": 0.6
+        },
+        {
+            "column": "Ext Gross Area",
+            "table": "Fac_building",
+            "description": "Sort departments by the size of their primary building footprint.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Assignable Area",
+            "table": "Fac_building",
+            "description": "Rank departments by usable interior space associated with them.",
+            "interestingness": 0.6
+        },
+        {
+            "column": "Non Assignable Area",
+            "table": "Fac_building",
+            "description": "Order departments by building support/circulation space tied to them.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Access Level Code",
+            "table": "Fac_building",
+            "description": "Group departments by building access level (security restrictions).",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Access Level Name",
+            "table": "Fac_building",
+            "description": "Group departments by named access category of their buildings.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Building Height",
+            "table": "Fac_building",
+            "description": "Sort departments by the vertical stature of their main buildings.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Cost Center Code",
+            "table": "Fac_building",
+            "description": "Sort by financial cost center codes (administrative, not semantic).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Cost Collector Key",
+            "table": "Fac_building",
+            "description": "Order by cost collector codes (accounting identifiers).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Latitude Wgs",
+            "table": "Fac_building",
+            "description": "Sort departments north–south by campus latitude of their location.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Longitude Wgs",
+            "table": "Fac_building",
+            "description": "Sort departments east–west by campus longitude of their location.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Easting X Spcs",
+            "table": "Fac_building",
+            "description": "Order departments by easting coordinate (campus geography).",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Northing Y Spcs",
+            "table": "Fac_building",
+            "description": "Order departments by northing coordinate (campus geography).",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Date Built",
+            "table": "Fac_building",
+            "description": "Sort departments by historic age of their main buildings.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Date Acquired",
+            "table": "Fac_building",
+            "description": "Order departments by when their building was acquired.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Date Occupied",
+            "table": "Fac_building",
+            "description": "Rank departments by how long they have occupied their building.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Num Of Rooms",
+            "table": "Fac_building",
+            "description": "Sort departments by room count available in their buildings.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Degree Weight",
+            "table": "Student_degree_program",
+            "description": "Order departments by typical credit weight of their degree programs.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Department",
+            "table": "Student_degree_program",
+            "description": "Sort by department code (identifier, minimal semantic value).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Fiscal Period",
+            "table": "Fclt_building_hist_1",
+            "description": "Sort historical building snapshots by period (recency context).",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Ext Gross Area",
+            "table": "Fclt_building_hist_1",
+            "description": "Rank departments by building size over time (historical EG area).",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Assignable Area",
+            "table": "Fclt_building_hist_1",
+            "description": "Order departments by historical usable space footprint.",
+            "interestingness": 0.6
+        },
+        {
+            "column": "Non Assignable Area",
+            "table": "Fclt_building_hist_1",
+            "description": "Sort by historical support/circulation area tied to departments.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Access Level Code",
+            "table": "Fclt_building_hist_1",
+            "description": "Group by historical building access level (code).",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Access Level Name",
+            "table": "Fclt_building_hist_1",
+            "description": "Group by historical access category label (limited semantic depth).",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Building Height",
+            "table": "Fclt_building_hist_1",
+            "description": "Sort departments by historical building height context.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Cost Center Code",
+            "table": "Fclt_building_hist_1",
+            "description": "Order by cost center (accounting code).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Cost Collector Key",
+            "table": "Fclt_building_hist_1",
+            "description": "Order by cost collector (accounting identifier).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Latitude Wgs",
+            "table": "Fclt_building_hist_1",
+            "description": "Sort by historical building latitude (campus geography).",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Longitude Wgs",
+            "table": "Fclt_building_hist_1",
+            "description": "Sort by historical building longitude (campus geography).",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Easting X Spcs",
+            "table": "Fclt_building_hist_1",
+            "description": "Order by historical easting coordinate.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Northing Y Spcs",
+            "table": "Fclt_building_hist_1",
+            "description": "Order by historical northing coordinate.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Num Of Rooms",
+            "table": "Fclt_building_hist_1",
+            "description": "Rank departments by historical room counts in their buildings.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Fiscal Period",
+            "table": "Fclt_building_list",
+            "description": "Sort building listings by period to view time-based context.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Ext Gross Area",
+            "table": "Fclt_building_list",
+            "description": "Order departments by building EG area at listed period.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Assignable Area",
+            "table": "Fclt_building_list",
+            "description": "Rank departments by usable space at listed period.",
+            "interestingness": 0.6
+        },
+        {
+            "column": "Non Assignable Area",
+            "table": "Fclt_building_list",
+            "description": "Order departments by non-assignable space at listed period.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Access Level Code",
+            "table": "Fclt_building_list",
+            "description": "Group by building access level code.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Access Level Name",
+            "table": "Fclt_building_list",
+            "description": "Group by access category label.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Building Height",
+            "table": "Fclt_building_list",
+            "description": "Sort departments by building height at listed period.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Cost Center Code",
+            "table": "Fclt_building_list",
+            "description": "Order by cost center code (administrative).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Cost Collector Key",
+            "table": "Fclt_building_list",
+            "description": "Order by cost collector key (administrative).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Latitude Wgs",
+            "table": "Fclt_building_list",
+            "description": "Sort departments by latitude of their listed buildings.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Longitude Wgs",
+            "table": "Fclt_building_list",
+            "description": "Sort departments by longitude of their listed buildings.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Easting X Spcs",
+            "table": "Fclt_building_list",
+            "description": "Sort departments by building easting (state plane).",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Northing Y Spcs",
+            "table": "Fclt_building_list",
+            "description": "Sort departments by building northing (state plane).",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Date Built",
+            "table": "Fclt_building_list",
+            "description": "Order departments by the age of their listed buildings.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Date Acquired",
+            "table": "Fclt_building_list",
+            "description": "Sort departments by when their buildings were acquired.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Date Occupied",
+            "table": "Fclt_building_list",
+            "description": "Rank departments by length of occupancy in their buildings.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Num Of Rooms",
+            "table": "Fclt_building_list",
+            "description": "Order departments by room counts in listed buildings.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Ext Gross Area",
+            "table": "Fclt_building",
+            "description": "Rank departments by EG area of associated buildings.",
+            "interestingness": 0.5
+        },
+        {
+            "column": "Assignable Area",
+            "table": "Fclt_building",
+            "description": "Order departments by usable interior space tied to them.",
+            "interestingness": 0.6
+        },
+        {
+            "column": "Non Assignable Area",
+            "table": "Fclt_building",
+            "description": "Sort departments by non-assignable building space.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Access Level Code",
+            "table": "Fclt_building",
+            "description": "Group departments by building access level (code).",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Access Level Name",
+            "table": "Fclt_building",
+            "description": "Group departments by access category label.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Building Height",
+            "table": "Fclt_building",
+            "description": "Order departments by height of associated buildings.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Cost Center Code",
+            "table": "Fclt_building",
+            "description": "Sort by financial cost center code (low semantic value).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Cost Collector Key",
+            "table": "Fclt_building",
+            "description": "Sort by financial cost collector code (low semantic value).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Latitude Wgs",
+            "table": "Fclt_building",
+            "description": "Sort departments by latitude of associated buildings.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Longitude Wgs",
+            "table": "Fclt_building",
+            "description": "Sort departments by longitude of associated buildings.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Easting X Spcs",
+            "table": "Fclt_building",
+            "description": "Order by building easting (state plane coordinate).",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Northing Y Spcs",
+            "table": "Fclt_building",
+            "description": "Order by building northing (state plane coordinate).",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Date Built",
+            "table": "Fclt_building",
+            "description": "Sort by the completion date of associated buildings.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Date Acquired",
+            "table": "Fclt_building",
+            "description": "Order by the acquisition date of associated properties.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Date Occupied",
+            "table": "Fclt_building",
+            "description": "Rank by how long departments have occupied their buildings.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Num Of Rooms",
+            "table": "Fclt_building",
+            "description": "Sort departments by room counts in associated buildings.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "From Term",
+            "table": "Sis_course_description",
+            "description": "Order departments by start-term codes of their courses (code-level).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Cip Program Code",
+            "table": "Sis_course_description",
+            "description": "Sort departments by CIP classification to group by disciplinary area.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Hr Org Unit Id",
+            "table": "Hr_org_unit_new",
+            "description": "Sort departments by HR org unit ID (identifier, low semantic value).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Hr Department Id",
+            "table": "Hr_org_unit_new",
+            "description": "Order departments by HR department ID (identifier).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Hr Department Code Old",
+            "table": "Hr_org_unit_new",
+            "description": "Sort by legacy department code (administrative).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Hr Org Level1 Id",
+            "table": "Hr_org_unit_new",
+            "description": "Group by top-level HR org ID (identifier only).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Hr Org Level1 Sort",
+            "table": "Hr_org_unit_new",
+            "description": "Sort departments by top-level HR hierarchy order.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Hr Org Level2 Id",
+            "table": "Hr_org_unit_new",
+            "description": "Group by HR org level 2 ID (identifier).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Hr Org Level2 Sort",
+            "table": "Hr_org_unit_new",
+            "description": "Sort by HR level 2 hierarchy ordering across departments.",
+            "interestingness": 0.2
+        },
+        {
+            "column": "Hr Org Level3 Id",
+            "table": "Hr_org_unit_new",
+            "description": "Group by HR org level 3 ID (identifier).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Hr Org Level3 Sort",
+            "table": "Hr_org_unit_new",
+            "description": "Order departments by mid-level HR hierarchy position.",
+            "interestingness": 0.25
+        },
+        {
+            "column": "Hr Org Level4 Id",
+            "table": "Hr_org_unit_new",
+            "description": "Group by HR org level 4 ID (identifier).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Hr Org Level4 Sort",
+            "table": "Hr_org_unit_new",
+            "description": "Sort departments by detailed HR hierarchy order (level 4).",
+            "interestingness": 0.25
+        },
+        {
+            "column": "Hr Org Level5 Id",
+            "table": "Hr_org_unit_new",
+            "description": "Group by HR org level 5 ID (identifier).",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Hr Org Level5 Sort",
+            "table": "Hr_org_unit_new",
+            "description": "Order departments by fine-grained HR hierarchy order (level 5).",
+            "interestingness": 0.25
+        },
+        {
+            "column": "Fclt Organization Hist Key",
+            "table": "Fclt_organization_hist",
+            "description": "Composite historical identifier; not meaningful for sorting departments or people.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Fiscal Period",
+            "table": "Fclt_organization_hist",
+            "description": "Sort departments by the effective snapshot period of their org record (recency over time), though input has no time context.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Fclt Organization Key",
+            "table": "Fclt_organization_hist",
+            "description": "Internal identifier; limited semantic value for sorting.",
+            "interestingness": 0.02
+        },
+        {
+            "column": "Organization Id",
+            "table": "Fclt_organization_hist",
+            "description": "Internal organization ID; not informative for semantic ordering.",
+            "interestingness": 0.02
+        },
+        {
+            "column": "Fclt Org Parent Key",
+            "table": "Fclt_organization_hist",
+            "description": "Sort/group departments by their parent organization to see sibling units under the same parent.",
+            "interestingness": 0.25
+        },
+        {
+            "column": "Fclt Major Org Key",
+            "table": "Fclt_organization_hist",
+            "description": "Group/sort departments by major organization (e.g., school/division) to see higher-level affiliations.",
+            "interestingness": 0.35
+        },
+        {
+            "column": "Organization Level",
+            "table": "Fclt_organization_hist",
+            "description": "Order departments by hierarchy depth to highlight central (top-level) vs. local (subunit) organizations.",
+            "interestingness": 0.6
+        },
+        {
+            "column": "Organization Number",
+            "table": "Fclt_organization_hist",
+            "description": "Numeric code; weak proxy for budgeting/area—minimal semantic sorting value.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Organization Sort",
+            "table": "Fclt_organization_hist",
+            "description": "Sort departments by the institution’s official organizational sort order to mirror the campus hierarchy.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Assignable",
+            "table": "Fclt_organization_hist",
+            "description": "Distinguish assignable vs. non-assignable orgs (leaf vs. header units) to prioritize operational units.",
+            "interestingness": 0.25
+        },
+        {
+            "column": "Hr Department Code Old",
+            "table": "Fclt_organization_hist",
+            "description": "HR code only; limited interpretability for sorting.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Hr Org Unit Id",
+            "table": "Fclt_organization_hist",
+            "description": "HR org unit ID; identifier without inherent semantic sorting value.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Course Number",
+            "table": "Library_subject_offered",
+            "description": "Course number; not informative for sorting departments or people.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Course Number Sort",
+            "table": "Library_subject_offered",
+            "description": "Course number (sortable); still not semantically meaningful for this table.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Subject Id",
+            "table": "Library_subject_offered",
+            "description": "Subject identifier; little semantic value for sorting departments here.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Subject Id Sort",
+            "table": "Library_subject_offered",
+            "description": "Sortable subject ID; not useful for semantic sorting of the input.",
+            "interestingness": 0.0
+        },
+        {
+            "column": "Offer Dept Code",
+            "table": "Library_subject_offered",
+            "description": "Department code for offerings; code-only grouping with limited interpretability.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Organization Key",
+            "table": "Fac_organization",
+            "description": "Org ID; identifier without semantic sorting value.",
+            "interestingness": 0.02
+        },
+        {
+            "column": "Organization Id",
+            "table": "Fac_organization",
+            "description": "Duplicate org ID; not meaningful for semantic sorting.",
+            "interestingness": 0.02
+        },
+        {
+            "column": "Org Parent Key",
+            "table": "Fac_organization",
+            "description": "Group/sort departments by parent organization to view sibling units and rollups.",
+            "interestingness": 0.3
+        },
+        {
+            "column": "Major Org",
+            "table": "Fac_organization",
+            "description": "Group/sort departments by major org (school/division) to see top-level affiliation.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Organization Level",
+            "table": "Fac_organization",
+            "description": "Order departments by level (top-level vs. sub-department) for structural context.",
+            "interestingness": 0.6
+        },
+        {
+            "column": "Organization Number",
+            "table": "Fac_organization",
+            "description": "Org code; minimal semantic value beyond internal numbering.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Organization Sort",
+            "table": "Fac_organization",
+            "description": "Sort departments by official organizational sort order to reflect institutional structure.",
+            "interestingness": 0.45
+        },
+        {
+            "column": "Assignable",
+            "table": "Fac_organization",
+            "description": "Sort departments by whether they are assignable (operational) vs. structural-only units.",
+            "interestingness": 0.25
+        },
+        {
+            "column": "Hr Department Code Old",
+            "table": "Fac_organization",
+            "description": "HR department code; limited semantic meaning for sorting.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Hr Org Unit Id",
+            "table": "Fac_organization",
+            "description": "HR OU ID; identifier with little semantic sorting value.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Dept Id",
+            "table": "Master_dept_dcode_parent",
+            "description": "Department ID; basic code not highly informative for semantic order.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Parent Id",
+            "table": "Master_dept_dcode_parent",
+            "description": "Sort/group departments by their parent department to reveal hierarchy and sibling relationships.",
+            "interestingness": 0.4
+        },
+        {
+            "column": "Dept Budget Code",
+            "table": "Sis_department",
+            "description": "Budget code; minor insight into administrative grouping but limited for semantic sorting.",
+            "interestingness": 0.1
+        },
+        {
+            "column": "Hr Org Unit Id",
+            "table": "Drupal_employee_directory",
+            "description": "HR org unit ID; code-only with limited semantic meaning for sorting.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Unit Id",
+            "table": "Warehouse_users",
+            "description": "Org unit ID; minimal semantic value for sorting.",
+            "interestingness": 0.05
+        },
+        {
+            "column": "Department Phone Number",
+            "table": "Sis_admin_department",
+            "description": "Sort people by their department’s main phone line, loosely clustering units that share administrative contact or campus exchange.",
+            "interestingness": 0.08
+        },
+        {
+            "column": "Clearing Cost Collector",
+            "table": "Sis_admin_department",
+            "description": "Sort by departmental cost center code to group records by financial hierarchy; codes are opaque so insight is limited.",
+            "interestingness": 0.03
+        },
+        {
+            "column": "Fclt Organization Key",
+            "table": "Space_unit",
+            "description": "Sort by the facilities organization managing each department’s space, clustering people by facilities management area (a rough proxy for physical footprint).",
+            "interestingness": 0.15
+        },
+        {
+            "column": "Space Unit Key",
+            "table": "Space_unit",
+            "description": "Sort by space unit ID linked to the department to group people by associated physical space; helpful for proximity planning though IDs lack labels.",
+            "interestingness": 0.12
+        },
+        {
+            "column": "Space Unit Code",
+            "table": "Space_unit",
+            "description": "Sort by space unit code to cluster departments by shared location code, offering a coarse view of physical co-location.",
+            "interestingness": 0.12
         }
     ]
 }

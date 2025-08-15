@@ -103,6 +103,61 @@ def _cosine_distance(a: np.ndarray, b: np.ndarray, eps: float = 1e-9) -> float:
 # ------------------------------------------------------------------
 
 
+def discover_join(
+    datalake_table: str,
+    datalake_column: str,
+    input_table_minhash,
+    input_table_semantic_type_embeddings,
+    semantic_types: Dict[str, Dict[str, str]],
+    minhashes,
+    base_col,
+    min_joinability_distance_threshold,
+
+    cosine_distance_threshold_for_existing_column_mapping
+) -> Optional[Dict[str, Any]]:
+
+    attr_col_sem_type_embedding = embed_text(semantic_types[datalake_table][datalake_column])
+    column_already_exists = False
+    for input_col_name, input_col_embedding in input_table_semantic_type_embeddings.items():
+        cosine_distance = _cosine_distance(attr_col_sem_type_embedding, input_col_embedding)
+        if cosine_distance < cosine_distance_threshold_for_existing_column_mapping:
+            column_already_exists = True
+            break
+
+    if column_already_exists:
+        return None
+
+    min_joinability_distance = 1
+    best_datalake_join_key = None
+
+    input_table_base_col_minhash = input_table_minhash[base_col]
+
+    for col, minhash in minhashes[datalake_table].items():
+        jaccard = input_table_base_col_minhash.jaccard(minhash)
+        joinability_distance = 1 - jaccard
+        if joinability_distance < min_joinability_distance:
+            min_joinability_distance = joinability_distance
+            best_datalake_join_key = col
+
+    if best_datalake_join_key is None:
+        return None
+
+    if min_joinability_distance > min_joinability_distance_threshold:
+        return None
+
+
+    joinable_path = {
+        "datalake_table": datalake_table,
+        "datalake_column": datalake_column,
+        "base_column": base_col,
+        "join_key_input": base_col,
+        "join_key_datalake": best_datalake_join_key,
+        "join_distance": min_joinability_distance,
+    }
+
+    # Found joinable path
+    return joinable_path
+
 
 def discover_augmentable_column(
     suggested_attribute: str,

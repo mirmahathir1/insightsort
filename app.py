@@ -1,20 +1,13 @@
 import os
 from pathlib import Path
 import base64
-import traceback
 import streamlit as st
 import pandas as pd
 import duckdb
 import cli_only
-from algorithms.llm_utils import call_gpt
 from algorithms.index_builder import build_indexes_from_datalake, load_indexes
-from algorithms.join_discovery import discover_augmentable_column
-from algorithms.semantic_score import (
-    compute_semantic_interestingness,
-)
-from tqdm import tqdm
-from algorithms import semantic_type_extractor, sql_gen, minhash_builder, table_description_builder
-from algorithms import infer_type
+from algorithms.join_discovery import discover_join
+from algorithms import semantic_type_extractor, minhash_builder, table_description_builder
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -33,6 +26,12 @@ global_source = ""
 
 semantic_distance_threshold_for_datalake_column_mapping = 0.4
 cosine_distance_threshold_for_existing_column_mapping = 0.2
+
+suggestion_deduplication_semantic_type_distance_threshold_dict = {
+    "country_datalake": 0.1,
+    "employee_datalake": 0,
+    "mitdwh_datalake": 0.3
+}
 
 # ───────────────────── Session‑state defaults ────────────────────────────────
 if "data_lake" not in st.session_state:
@@ -208,16 +207,17 @@ if chosen_lake:  # only proceed if the user actually picked one
             st.session_state.index_dir = index_dir 
 
             # 1️⃣ Read every CSV in all_tables/*
-            st.session_state.data_lake = cli_only.load_datalake_tables(lake_dir=lake_dir)
-            st.session_state.all_table_descriptions = table_description_builder.load_table_descriptions(save_dir=index_dir)
-            st.session_state.all_minhashes = minhash_builder.load_minhashes(index_dir)
-            st.session_state.semantic_types = semantic_type_extractor.load_semantic_types(index_dir)
-
-            # 2️⃣ Ensure indexes exist (build if missing/empty)
-            with st.spinner(f"Building indexes for '{chosen_lake}' …"):
+            with st.spinner(f"Loading data lake '{chosen_lake}' …"):
                 build_indexes_from_datalake(
                     st.session_state.data_lake, save_dir=index_dir
                 )
+                st.session_state.data_lake = cli_only.load_datalake_tables(lake_dir=lake_dir)
+                st.session_state.all_table_descriptions = table_description_builder.load_table_descriptions(save_dir=index_dir)
+                st.session_state.all_minhashes = minhash_builder.load_minhashes(index_dir)
+                st.session_state.semantic_types = semantic_type_extractor.load_semantic_types(index_dir)
+                st.session_state.semantic_type_embeddings = semantic_type_extractor.load_semantic_type_embeddings(index_dir)
+                st.session_state.chosen_lake = chosen_lake
+
             st.success("✅ Indexes built and stored in the data‑lake.")
 
             # 4️⃣ Collect available input tables (but don’t load yet)
@@ -317,44 +317,63 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
     input_df_minhash = minhash_builder.build_minhashes(datalake={"input_table": input_df}, parallel_enabled=False)['input_table']
 
     if st.button("Get Suggestions 💡"):
-        suggestions_df, augmentation_cache = cli_only.generate_suggestions(
-            input_table=input_df,
-            input_table_minhash=input_df_minhash,
-            all_minhashes=st.session_state.all_minhashes,
-            data_lake=st.session_state.data_lake,
-            index_dir=st.session_state.index_dir,
-            table_descriptions=st.session_state.all_table_descriptions,
-            semantic_distance_threshold_for_datalake_column_mapping = semantic_distance_threshold_for_datalake_column_mapping,
-            cosine_distance_threshold_for_existing_column_mapping = cosine_distance_threshold_for_existing_column_mapping,
-            semantic_types=st.session_state.semantic_types
-        )
-        st.session_state.suggestions_df = suggestions_df
-        st.session_state.augmentation_cache = augmentation_cache
+        with st.spinner(f"Generating Suggestions …"):
+            suggestions_df, augmentation_cache = cli_only.generate_numeric_column_suggestions(
+                input_table=input_df,
+                input_table_minhash=input_df_minhash,
+                all_minhashes=st.session_state.all_minhashes,
+                data_lake=st.session_state.data_lake,
+                table_descriptions=st.session_state.all_table_descriptions,
+                cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping,
+                suggestion_deduplication_semantic_type_distance_threshold=suggestion_deduplication_semantic_type_distance_threshold_dict[st.session_state.chosen_lake],
+                semantic_types=st.session_state.semantic_types,
+                semantic_type_embeddings=st.session_state.semantic_type_embeddings
+            )
+            st.session_state.suggestions_df = suggestions_df
+            st.session_state.augmentation_cache = augmentation_cache
 
 # --- Display Suggestions and Selection Form ---
 if st.session_state.uploaded_table is not None and st.session_state.suggestions_df is not None and not st.session_state.suggestions_df.empty:
         st.subheader("🔍 Sorting Suggestions")
-        sorted_suggestions_df = (
-            st.session_state.suggestions_df
-                .sort_values(["Interestingness"],
-                            ascending=[False])
-        )
 
-        st.table(sorted_suggestions_df)
+        # Show suggestions with a color‑coded 'interestingness' column (0=red → 1=bright green)
+        _view_cols = ['base_column', 'Augmented Column', 'interestingness', 'description']
+        _df_view = st.session_state.suggestions_df[_view_cols].copy()
+
+        def _color_interestingness(val):
+            try:
+                x = float(val)
+            except (TypeError, ValueError):
+                return ""
+            # Clamp to [0,1]
+            x = 0.0 if x is None else max(0.0, min(1.0, x))
+            # # Linear blend: red (255,0,0) -> bright green (0,200,83)
+            r = int(255 * (1.0 - x))
+            g = int(200 * x)
+            b = int(83 * x)
+            # Lighten toward white for softer, more white-ish shades
+            w = 0.6  # 0 = no lightening, 1 = fully white
+            r = int(r * (1.0 - w) + 255 * w)
+            g = int(g * (1.0 - w) + 255 * w)
+            b = int(b * (1.0 - w) + 255 * w)
+            return f"background-color: rgb({r},{g},{b});"
+
+        _styled = _df_view.style.applymap(_color_interestingness, subset=['interestingness'])
+        st.dataframe(_styled, use_container_width=True)
 
         input_columns = list(st.session_state.uploaded_table.columns)
-        candidate_columns = list(st.session_state.suggestions_df["Sort Attribute"])
+        candidate_columns = list(st.session_state.suggestions_df["datalake_column"])
 
-        semantic_interestingness = compute_semantic_interestingness(input_columns, candidate_columns)
+        # semantic_interestingness = compute_semantic_interestingness(input_columns, candidate_columns)
 
-        st.write(f"Semantic Utility score: {semantic_interestingness}")
+        # st.write(f"Semantic Utility score: {semantic_interestingness}")
 
         df_suggestions = st.session_state.suggestions_df
 
         # Generate unique readable options for user selection
         select_options = [
-            f"{row['Base Column']} ➝ {row['Sort Attribute']}"
-            for _, row in sorted_suggestions_df.iterrows()
+            f"{row['base_column']} ➝ {row['Augmented Column']}"
+            for _, row in st.session_state.suggestions_df.iterrows()
         ]
 
         select_options_with_prompt = ["-- Select --"] + select_options
@@ -396,7 +415,7 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
     # Regeberate options to find index reliably (needed because index might change)
     df_suggestions = st.session_state.suggestions_df
     current_select_options = [
-        f"{row['Base Column']} ➝ {row['Sort Attribute']}"
+        f"{row['base_column']} ➝ {row['Augmented Column']}"
         for _, row in df_suggestions.iterrows()
     ]
 
@@ -405,10 +424,9 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
     selected_row = df_suggestions.iloc[selected_idx]
     sort_info = selected_row.to_dict()
 
-    base_col = selected_row["Base Column"]
-    sort_attr = selected_row["Sort Attribute"]
-    description = selected_row["Description"]
-    required_col = selected_row["Required Column"]
+    base_col = selected_row["base_column"]
+    sort_attr = selected_row["datalake_column"]
+    description = selected_row["description"]
     input_cols = list(st.session_state.uploaded_table.columns)
 
     col_exp1, col_exp2 = st.columns([1, 1])
@@ -435,7 +453,7 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
                             color: #1565c0;
                             font-weight: 600;
                             padding-left: 4px;
-                        '>{sort_info['Sort Attribute']}</span>
+                        '>{sort_info['Augmented Column']}</span>
                     </p>
                 </div>
                 """,
@@ -444,19 +462,19 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            interestingness = float(sort_info['Interestingness'])
+            interestingness = float(sort_info['interestingness'])
             col1, col2 = st.columns([1, 1])
 
             with col1:
                 st.markdown("<div style='background-color:#f9f9f9; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
                 st.markdown("#### Column Information")
-                st.markdown(f"**Base Column:** `{sort_info['Base Column']}`")
-                st.markdown(f"**Required Column:** `{sort_info['Required Column']}`")
+                st.markdown(f"**Base Column:** `{sort_info['base_column']}`")
+                st.markdown(f"**Required Column:** `{sort_info['Augmented Column']}`")
                 st.markdown("</div>", unsafe_allow_html=True)
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                is_present = sort_info.get('Column present', 'No') == 'Yes'
+                is_present = False
                 status_bg = "#E8F5E9" if is_present else "#FFF8E1"
                 status_color = "#2E7D32" if is_present else "#FF8F00"
                 status_icon = "✅" if is_present else "ℹ️"
@@ -482,7 +500,7 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
 
                 st.markdown("<div style='background-color:#e8eaf6; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
                 st.markdown("#### 📜 Description")
-                st.markdown(f"*{sort_info['Description']}*")
+                st.markdown(f"*{sort_info['description']}*")
                 st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
@@ -499,7 +517,7 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
         if st.session_state.augment_data_clicked:
             semantic_types, semantic_type_hnsw_index, all_minhashes, all_table_descriptions = load_indexes(st.session_state.index_dir)
 
-            row_key = (base_col, sort_attr)
+            row_key = (base_col, selected_row["datalake_table"], selected_row["datalake_column"])
             augment_data = st.session_state.augmentation_cache.get(row_key)
             if augment_data is None:
                 st.warning(
@@ -529,7 +547,7 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
                                     color: #1b5e20;
                                     font-weight: 600;
                                     padding-left: 4px;
-                                '>{augment_data['suggested_attribute']}</span>
+                                '>{augment_data['Augmented Column']}</span>
                             </p>
                         </div>
                         """,
@@ -539,7 +557,6 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
                     st.markdown("<br>", unsafe_allow_html=True)
 
                     # Convert numpy values to Python float if needed
-                    sem_dist = float(augment_data['semantic_distance'])
                     join_dist = float(augment_data['join_distance'])
                     
                     # Create two columns for the data
@@ -548,8 +565,8 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
                     with col1:
                         st.markdown("<div style='background-color:#f9f9f9; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
                         st.markdown("#### 📂 Source Information")
-                        st.markdown(f"**Table:** `{augment_data['matched_table']}`")
-                        st.markdown(f"**Column:** `{augment_data['matched_column']}`")
+                        st.markdown(f"**Table:** `{augment_data['datalake_table']}`")
+                        st.markdown(f"**Column:** `{augment_data['datalake_column']}`")
                         st.markdown("</div>", unsafe_allow_html=True)
                         
                         st.markdown("<br>", unsafe_allow_html=True)
@@ -571,15 +588,6 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
                         st.markdown("</div>", unsafe_allow_html=True)
                         
                         st.markdown("<br>", unsafe_allow_html=True)
-                        
-                        # Display semantic quality with visual indicator
-                        st.markdown("<div style='background-color:#e3f2fd; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
-                        st.markdown("#### Semantic Match")
-                        # Create a progress bar for semantic distance (inverted since lower is better)
-                        semantic_quality = max(0, min(1.0, 1.0 - sem_dist)) if sem_dist <= 1.0 else 0
-                        st.progress(semantic_quality)
-                        st.markdown(f"**Semantic Distance:** `{sem_dist:.4f}`")
-                        st.markdown("</div>", unsafe_allow_html=True)
                     
                     # Add action buttons at the bottom
                     st.markdown("<br>", unsafe_allow_html=True)
@@ -593,61 +601,22 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
 
         # proceeding with sql generation
 
-    if selected_row["Column present"] == "Yes":
-
-        if st.session_state.apply_sort_clicked:
-
-            with st.spinner("Generating SQL query to sort your table..."):    
-                sql_prompt = f"""
-        Given a table with the following columns: {input_cols}
-        Write an SQL query that sorts this table by {required_col} in descending order, assuming that column exists in the table and is aligned with {base_col}. 
-
-        Here is what's exactly needed:
-        - The SQL query should sort the **entire table** according to this: {description}
-        - You may need to use GROUP BY, ORDER BY, OVER(), or any SQL techniques as needed.
-        - Ensure the final output includes **all original table columns plus any derived column** used in ORDER BY.
-        - Do not return a partial subset of the table — return a **fully sorted version of the input table with the sorting column visible.**
-        - If any column name contains spaces or special characters, wrap it in **double quotes** (e.g., "gdp (in trillions USD)").
-        - Table name is 'input_table'
-
-        Return only the SQL query — no explanations or markdown formatting. Also don't include it in backticks 
-        OUTPUT
-        like this. Just give a normal string output.
-        """
-
-                try:
-                    sql_response = call_gpt(sql_prompt).strip()
-
-                    if sql_response:
-                        st.markdown("### 🧾 SQL Query to Sort Your Table")
-                        st.code(sql_response, language="sql")
-
-                        result_df = con.execute(sql_response).df()
-                        st.dataframe(result_df)
-                    else:
-                        st.error("⚠️ Could not generate SQL query. Please try again.")
-                except Exception as e:
-                        st.error(f"⚠️ Error calling LLM for SQL generation: {e}")
-                        print(traceback.format_exc())  # or st.text()
-
     if st.session_state.augment_data_clicked:
         semantic_types, semantic_type_hnsw_index, minhashes, all_table_descriptions = load_indexes(st.session_state.index_dir)
 
-        augment_data = discover_augmentable_column(
-            suggested_attribute=sort_attr,
-            input_table=st.session_state.uploaded_table,
-            input_table_minhash=st.session_state.uploaded_table_minhashes,
-            input_table_semantic_type_embeddings=st.session_state.uploaded_table_semantic_type_embeddings,
-            datalake=st.session_state.data_lake,
-            semantic_types=semantic_types,
-            minhashes=minhashes,
-            semantic_type_hnsw_index=semantic_type_hnsw_index,
-            base_col=base_col,
-            top_k=5,
-            min_joinability_distance_threshold=0.99,
-            semantic_distance_threshold_for_datalake_column_mapping=semantic_distance_threshold_for_datalake_column_mapping,
+        augment_data = discover_join(
+            datalake_table= augment_data['datalake_table'],
+            datalake_column= augment_data['datalake_column'],
+            input_table_minhash= st.session_state.uploaded_table_minhashes,
+            input_table_semantic_type_embeddings= st.session_state.uploaded_table_semantic_type_embeddings,
+            semantic_types= st.session_state.semantic_types,
+            minhashes= st.session_state.all_minhashes,
+            base_col= base_col,
+            min_joinability_distance_threshold= 0.99,
             cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping
         )
+
+        
 
         if st.session_state.apply_augmentation_clicked:
             if augment_data is not None:
@@ -660,5 +629,11 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
                 )
                 st.markdown("### Augmented SQL Query")
                 st.code(sql, language="sql")
+                # Highlight the second column in bright green for quick identification
+                second_col = augment_result_df.columns[1]
+                styled_df = augment_result_df.style.set_properties(
+                    subset=[second_col],
+                    **{"background-color": "#b9f6ca"}  # bright green
+                )
+                st.dataframe(styled_df, use_container_width=True)
 
-                st.dataframe(augment_result_df)

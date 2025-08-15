@@ -4,6 +4,7 @@ import pandas as pd
 import os
 from algorithms import embedding_utils, prompts, llm_utils
 import json
+from tqdm import tqdm
 
 def align_semantic_types(
     raw_result: Dict[str, str],
@@ -143,3 +144,60 @@ def build_semantic_type_embeddings(input_table: pd.DataFrame) -> dict[str, list[
     for column in input_table.columns:
         input_table_semantic_type_embeddings[column] = embedding_utils.embed_text(input_table_semantic_types[column])
     return input_table_semantic_type_embeddings
+
+def build_semantic_type_embeddings_for_datalake(
+    semantic_types: dict[str, dict[str, str]]
+) -> dict[str, dict[str, list[float]]]:
+    """
+    Build semantic type embeddings for each column in the datalake.
+
+    :return: Dictionary mapping table names to their semantic type embeddings.
+    """
+    semantic_type_embeddings = {}
+    for table_name, cols in tqdm(semantic_types.items()):
+        embeddings = {col: embedding_utils.embed_text(semantic_types[table_name][col]) for col in cols}
+        semantic_type_embeddings[table_name] = embeddings
+    return semantic_type_embeddings
+
+def save_semantic_type_embeddings(
+    semantic_type_embeddings: dict[str, dict[str, list[float]]],
+    save_dir: str,
+    verbose: bool = True
+) -> None:
+    """
+    Save the semantic type embeddings to a pickle file.
+
+    :param semantic_type_embeddings: Dictionary of table names to their semantic type embeddings.
+    :param save_dir: Directory where the embeddings will be saved.
+    :param verbose: Whether to print status messages.
+    """
+    import pickle
+    embeddings_path = os.path.join(save_dir, "semantic_type_index", "semantic_type_embeddings.pkl")
+    os.makedirs(os.path.dirname(embeddings_path), exist_ok=True)
+    with open(embeddings_path, "wb") as f:
+        pickle.dump(semantic_type_embeddings, f)
+
+    if verbose: print(f"💾 Saved semantic type embeddings → {embeddings_path}")
+
+def does_semantic_type_embeddings_exist(save_dir: str) -> bool:
+    """
+    Check if the semantic type embeddings file exists in the specified directory.
+
+    :param save_dir: Directory where the semantic type embeddings are saved.
+    :return: True if the semantic type embeddings file exists, False otherwise.
+    """
+    embeddings_path = os.path.join(save_dir, "semantic_type_index", "semantic_type_embeddings.pkl")
+    return os.path.exists(embeddings_path)
+
+def load_semantic_type_embeddings(save_dir: str) -> dict[str, dict[str, list[float]]]:
+    """
+    Load the semantic type embeddings from a pickle file.
+
+    :param save_dir: Directory where the semantic type embeddings are saved.
+    :return: Dictionary of table names to their semantic type embeddings.
+    """
+    import pickle
+    embeddings_path = os.path.join(save_dir, "semantic_type_index", "semantic_type_embeddings.pkl")
+
+    with open(embeddings_path, "rb") as f:
+        return pickle.load(f)

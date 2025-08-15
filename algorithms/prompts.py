@@ -1,3 +1,5 @@
+import pandas as pd
+
 def build_suggestion_prompt(input_table, column_names, other_table_descriptions):
     # Get the most frequent 5 values for each column in input_table
     input_table_string = ""
@@ -179,23 +181,23 @@ Return only a decimal number between 0 and 1, without explanation.
 
 
 
-def generate_single_table_sql_prompt(input_cols, required_col, description, base_col):
-    return f"""
-    Given a table with the following columns: {input_cols}
-    Write an SQL query that sorts this table by {required_col} in descending order, assuming that column exists in the table and is aligned with {base_col}.
+# def generate_single_table_sql_prompt(input_cols, required_col, description, base_col):
+#     return f"""
+#     Given a table with the following columns: {input_cols}
+#     Write an SQL query that sorts this table by {required_col} in descending order, assuming that column exists in the table and is aligned with {base_col}.
 
-    Here is what's exactly needed:
-    - The SQL query should sort the **entire table** according to this: {description}
-    - You may need to use GROUP BY, ORDER BY, OVER(), or any SQL techniques as needed.
-    - Ensure the final output includes **all original table columns plus any derived column** used in ORDER BY.
-    - Do not return a partial subset of the table — return a **fully sorted version of the input table with the sorting column visible.**
-    - If any column name contains spaces or special characters, wrap it in **double quotes** (e.g., "gdp (in trillions USD)").
-    - Table name is 'input_table'
+#     Here is what's exactly needed:
+#     - The SQL query should sort the **entire table** according to this: {description}
+#     - You may need to use GROUP BY, ORDER BY, OVER(), or any SQL techniques as needed.
+#     - Ensure the final output includes **all original table columns plus any derived column** used in ORDER BY.
+#     - Do not return a partial subset of the table — return a **fully sorted version of the input table with the sorting column visible.**
+#     - If any column name contains spaces or special characters, wrap it in **double quotes** (e.g., "gdp (in trillions USD)").
+#     - Table name is 'input_table'
 
-    Return only the SQL query — no explanations or markdown formatting. Also don't include it in backticks.
-    """.strip()
+#     Return only the SQL query — no explanations or markdown formatting. Also don't include it in backticks.
+#     """.strip()
 
-import pandas as pd
+# import pandas as pd
 
 def generate_semantic_type_prompt(df: pd.DataFrame, top_k: int = 20) -> str:
     """
