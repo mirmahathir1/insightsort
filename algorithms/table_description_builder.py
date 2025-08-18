@@ -1,14 +1,14 @@
 # This file handles generating one line description for a table using semantic types and values
 
-from algorithms.llm_utils import call_gpt
+from llm_utils import call_gpt
 import pandas as pd
 import json
 import math
 from custom_lib import utils
 import os
 import pprint
-from algorithms import llm_utils
-from algorithms.embedding_utils import embed_text
+import llm_utils
+from embedding_utils import embed_text
 import faiss
 
 def build_table_description_prompt(

@@ -1,753 +1,39 @@
 #!/usr/bin/env python3
 # insightsort_cli.py — CLI version of InsightSort (no Streamlit)
 
-import os
 import sys
 import argparse
-import traceback
 from pathlib import Path
-import pprint
-import json
-import hashlib
-import pickle
 
 import duckdb
 import pandas as pd
-from tqdm import tqdm
-import codecs
-from custom_lib import parallel
 from algorithms import table_description_builder, minhash_builder
-import time
-from algorithms import sql_gen
 
-# ── Your existing modules ─────────────────────────────────────────────────────
-from algorithms import prompts, embedding_utils
-from algorithms import infer_type
-from algorithms.llm_utils import call_gpt, parse_suggestion, extract_json_object
-from algorithms.index_builder import build_indexes_from_datalake, load_indexes
-from algorithms.join_discovery import discover_augmentable_column, discover_join, _cosine_distance
-import numpy as np
-from algorithms.semantic_score import (
-    compute_semantic_interestingness,
-    update_suggestions_with_semantic_scores,
-)
-
-from algorithms import suggestion_with_numeric_columns
-
-from algorithms import semantic_type_extractor
-
+from algorithms import semantic_type_extractor, suggestion_engine
 from algorithms import index_builder
-from difflib import SequenceMatcher
-
-min_joinability_distance_threshold = 0.99
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Helpers
-# ──────────────────────────────────────────────────────────────────────────────
-
-def remove_non_utf8_lines(filename):
-    with codecs.open(filename, 'r', encoding='utf-8', errors='ignore') as f_in:
-        lines = f_in.readlines()
-
-    with codecs.open(filename, 'w', encoding='utf-8') as f_out:
-        for line in lines:
-            try:
-                line.encode('utf-8')
-                f_out.write(line)
-            except UnicodeEncodeError:
-                continue
-
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
+import helpers
+import pandas_helper
 
 
-
-def list_dir_names(d: Path) -> list[str]:
-    return sorted([p.name for p in d.iterdir() if p.is_dir()]) if d.exists() else []
-
-def list_csv_files(d: Path) -> list[Path]:
-    return sorted(d.glob("*.csv")) if d.exists() else []
-
-def choose_from_list(prompt_text: str, options: list[str]) -> str:
-    if not options:
-        raise RuntimeError("No options to choose from.")
-    print(f"\n{prompt_text}")
-    for i, opt in enumerate(options, 1):
-        print(f"  {i}. {opt}")
-    while True:
-        choice = input("Enter choice number: ").strip()
-        if not choice.isdigit():
-            print("Please enter a valid number.")
-            continue
-        idx = int(choice)
-        if 1 <= idx <= len(options):
-            return options[idx - 1]
-        print("Out of range. Try again.")
-
-def print_rule(title: str = ""):
-    line = "─" * 80
-    if title:
-        print(f"\n{line}\n{title}\n{line}")
-    else:
-        print(f"\n{line}")
-
-def yes_no(prompt_text: str, default_yes: bool = True) -> bool:
-    suffix = "[Y/n]" if default_yes else "[y/N]"
-    while True:
-        ans = input(f"{prompt_text} {suffix} ").strip().lower()
-        if ans == "" and default_yes:
-            return True
-        if ans == "" and not default_yes:
-            return False
-        if ans in ("y", "yes"):
-            return True
-        if ans in ("n", "no"):
-            return False
-        print("Please answer 'y' or 'n'.")
-
-
-def print_df(df: pd.DataFrame, max_rows: int = 30):
-    if len(df) > max_rows:
-        print(df.head(max_rows).to_string(index=True))
-        print(f"... ({len(df) - max_rows} more rows)")
-    else:
-        print(df.to_string(index=True))
-
-def export_df(df: pd.DataFrame, out_path: Path | None):
-    if out_path is None:
-        return
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out_path, index=False)
-    print(f"✅ Saved to {out_path}")
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Cache helper for augmented SQL results
-# ──────────────────────────────────────────────────────────────────────────────
-def read_augmented_sql_cache(augment_data: dict, cached: bool):
-    """
-    Load augmented SQL + DataFrame from a pickle cache if available and requested.
-    Otherwise, compute using compute_fn(), persist to cache, and return the result.
-
-    Cache location: ./llmcache/augmented_sql_cache/<sha256(augment_data)>.pkl
-    Payload format: {"sql": str, "df": pandas.DataFrame}
-    """
-    if not cached:
-        return None
-    cache_dir = Path.cwd() / "augmented_sql_cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    cache_key_src = json.dumps(augment_data, sort_keys=True, default=str)
-
-    cache_hash = hashlib.sha256(cache_key_src.encode("utf-8")).hexdigest()
-    cache_path = cache_dir / f"{cache_hash}.pkl"
-
-    # Fast path: return cached when requested and present
-    if cached and cache_path.exists():
-        with open(cache_path, "rb") as f:
-            payload = pickle.load(f)
-        return payload["sql"], payload["df"]
-
-    return None
-
-def save_augmented_sql_cache(augment_data: dict, sql: str, df: pd.DataFrame, cached):
-    """
-    Save augmented SQL + DataFrame to a pickle cache.
-    Cache location: ./llmcache/augmented_sql_cache/<sha256(augment_data)>.pkl
-    Payload format: {"sql": str, "df": pandas.DataFrame}
-    """
-    cache_dir = Path.cwd() / "augmented_sql_cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    cache_key_src = json.dumps(augment_data, sort_keys=True, default=str)
-
-    cache_hash = hashlib.sha256(cache_key_src.encode("utf-8")).hexdigest()
-    cache_path = cache_dir / f"{cache_hash}.pkl"
-
-    payload = {"sql": sql, "df": df}
-
-    with open(cache_path, "wb") as f:
-        pickle.dump(payload, f)
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Core workflow
-# ──────────────────────────────────────────────────────────────────────────────
-def read_csv_safely(path: Path) -> pd.DataFrame:
-    # remove_non_utf8_lines(path)
-    return pd.read_csv(path, on_bad_lines='skip', dtype=str)
-
-# ───────────────────────── worker for one CSV ─────────────────────────
-def _read_csv_worker(arg, common_arguments, common_args_for_batch):
-    """
-    arg: {"path": "<string path>", "name": "<table_name>"}
-    returns:
-      ("ok", name, df) on success
-      ("err", name, "message") on failure
-    """
-    p = Path(arg["path"])
-    name = arg["name"]
-
-    df = read_csv_safely(p)
-    return ("ok", name, df)
-
-
-# ───────────────────── parallelized table loader ─────────────────────
-def load_datalake_tables(lake_dir: Path) -> dict[str, pd.DataFrame]:
-    """
-    Reads all CSVs under lake_dir / 'all_tables' into DataFrames in parallel.
-    Returns {table_name: dataframe}
-    """
-    all_tables_dir = lake_dir / "all_tables"
-    tables: dict[str, pd.DataFrame] = {}
-
-    csv_paths = list_csv_files(all_tables_dir)  # assumed to return Iterable[Path]
-    argument_list = [{"path": str(p), "name": p.stem} for p in csv_paths]
-
-    # If your executor supports worker config, pass via common_arguments
-    results = parallel.execute(
-        func=_read_csv_worker,
-        argument_list=argument_list
-    )
-
-    for status, name, payload in results:
-        if status == "ok":
-            tables[name] = payload  # payload is the DataFrame
-        else:
-            # payload is the error message
-            eprint(f"⚠️  Skipping {name}: {payload}")
-
-    return tables
-
-def ensure_indexes(data_lake: dict[str, pd.DataFrame], index_dir: Path):
-    index_dir.mkdir(parents=True, exist_ok=True)
-    build_indexes_from_datalake(data_lake, save_dir=index_dir)
 
 def select_input_table(lake_dir: Path, prefer: str | None = None) -> tuple[str, pd.DataFrame, Path]:
     input_dir = lake_dir / "input_tables"
-    files = list_csv_files(input_dir)
+    files = helpers.list_csv_files(input_dir)
     if not files:
         raise RuntimeError(f"No input tables found in {input_dir} (need *.csv).")
     names = [p.stem for p in files]
     if prefer and prefer in names:
         chosen_name = prefer
     else:
-        chosen_name = choose_from_list("Select an input table:", names)
+        chosen_name = helpers.choose_from_list("Select an input table:", names)
     chosen_file = next(p for p in files if p.stem == chosen_name)
-    df = read_csv_safely(chosen_file)
+    df = pandas_helper.read_csv_safely(chosen_file)
     return chosen_name, df, chosen_file
 
-def split_dict(original_dict, n):
-    """
-    Split a dictionary into a list of dictionaries,
-    each containing up to n key-value pairs.
-
-    :param original_dict: dict, the dictionary to split
-    :param n: int, max number of items in each split dictionary
-    :return: list of dictionaries
-    """
-    if n <= 0:
-        raise ValueError("n must be a positive integer")
-
-    items = list(original_dict.items())
-    return [dict(items[i:i + n]) for i in range(0, len(items), n)]
-
-def split_list(original_list, n):
-    """
-    Split a list into a list of lists,
-    each containing up to n items.
-    :param original_list: list, the list to split
-    :param n: int, max number of items in each split list
-    :return: list of lists
-    """
-    if n <= 0:
-        raise ValueError("n must be a positive integer")
-    return [original_list[i:i + n] for i in range(0, len(original_list), n)]
-
-def generate_numeric_column_suggestions(
-        input_table: pd.DataFrame,
-        input_table_minhash, 
-        all_minhashes, 
-        data_lake: dict[str, pd.DataFrame], 
-        table_descriptions: dict[str, str],
-        cosine_distance_threshold_for_existing_column_mapping,
-        suggestion_deduplication_semantic_type_distance_threshold,
-        semantic_types,
-        semantic_type_embeddings: dict[str, dict[str, list[float]]]
-        ) -> tuple[pd.DataFrame, dict]:
-    """
-    Calls LLM to generate suggestions, filters/augments where needed,
-    enriches with semantic scores; returns (suggestions_df, augmentation_cache)
-    """
-    input_table_semantic_types = semantic_type_extractor.infer_semantic_types_for_df(df=input_table)
-
-    joinable_tables = table_description_builder.table_filter_using_minhash(
-        input_table_minhash=input_table_minhash,
-        table_minhashes=all_minhashes,
-        minhash_jaccard_threshold= 1 - min_joinability_distance_threshold
-    )
-
-    only_numeric_columns = suggestion_with_numeric_columns.get_numeric_columns_by_table(
-        data_lake=data_lake,
-        sample_size=20
-    )
-
-    joinable_table_segments = split_list(joinable_tables, 10)
-
-    all_suggestions = {}
-    print_rule("Calling LLM for suggestions")
-    for single_segment_of_joinable_tables in tqdm(joinable_table_segments):
-
-        table_segment_suggestions = suggestion_with_numeric_columns.get_interesting_columns_by_table(
-            	input_table= input_table,
-                input_table_semantic_types= input_table_semantic_types,
-                all_datalake= data_lake,
-                joinable_tables= single_segment_of_joinable_tables,
-                table_descriptions= table_descriptions,
-                all_semantic_types= semantic_types,
-                only_numeric_columns= only_numeric_columns
-            )
-        for base_col, suggestions in table_segment_suggestions.items():
-            if base_col not in all_suggestions:
-                all_suggestions[base_col] = []
-            all_suggestions[base_col].extend(suggestions)
-
-    with open("all_suggestions.json", "w", encoding="utf-8") as f:
-        json.dump(all_suggestions, f, indent=4, ensure_ascii=False)
-    print("✅ Dumped all suggestions to all_suggestions.json")
-
-    augmentation_cache = {}
-    rows = []
-
-    print_rule("Evaluating suggestions against the data lake")
-    input_table_semantic_type_embeddings = semantic_type_extractor.build_semantic_type_embeddings(input_table)
-    print("discover_augmentable_column")
-    for base_col, sort_list in all_suggestions.items():
-        for s in sort_list:
-            aug = discover_join(
-                datalake_table= s["table"],
-                datalake_column= s["column"],
-                input_table_minhash=input_table_minhash,
-                input_table_semantic_type_embeddings=input_table_semantic_type_embeddings,
-                semantic_types=semantic_types,
-                minhashes=all_minhashes,
-                base_col=base_col,
-                min_joinability_distance_threshold=min_joinability_distance_threshold,
-                cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping
-            )
-            if aug is None:
-                # skip suggestions that can't be satisfied
-                continue
-            aug['interestingness'] = s['interestingness']
-            aug['description'] = s['description']
-            aug['base_column'] = base_col
-            aug['Augmented Column'] = semantic_types[s['table']][s['column']]
-            aug['Source Table'] = s['table']
-            augmentation_cache[(base_col, aug["datalake_table"], aug["datalake_column"])] = aug
-
-            rows.append(aug)
-
-    if len(rows) == 0:
-        raise RuntimeError("No viable suggestions after augmentation checks.")
-
-    suggestions_df = pd.DataFrame(rows)
-
-
-
-    suggestions_df = suggestions_df.sort_values(by="interestingness", ascending=False).drop_duplicates(subset=["datalake_table", "datalake_column"]).reset_index(drop=True)
-
-    # Semantic de-duplication: discard later rows whose data lake column semantic type
-    # is too close (low cosine distance) to any previously kept row.
-    # Uses only precomputed embeddings from semantic_type_embeddings.
-
-    kept_indices = []
-    kept_embs = []  # list[np.ndarray]
-    for idx, row in suggestions_df.iterrows():
-        emb = semantic_type_embeddings[row['datalake_table']][row['datalake_column']]
-        if len(kept_embs) == 0:
-            kept_indices.append(idx)
-            kept_embs.append(emb)
-            continue
-
-        is_too_close = False
-        for previous_emb in kept_embs:
-            if _cosine_distance(emb, previous_emb) < suggestion_deduplication_semantic_type_distance_threshold:
-                is_too_close = True
-                break
-        if is_too_close:
-            continue  # skip this row, it's too close to a previous one
-
-        kept_indices.append(idx)
-        kept_embs.append(emb)
-
-    suggestions_df = suggestions_df.loc[kept_indices].reset_index(drop=True)
-
-    return suggestions_df, augmentation_cache
-
-def generate_suggestions(
-        input_table: pd.DataFrame, 
-        input_table_minhash, 
-        all_minhashes, 
-        data_lake: dict[str, pd.DataFrame], 
-        index_dir: Path, 
-        table_descriptions: list[dict[str, str]],
-        semantic_distance_threshold_for_datalake_column_mapping,
-        cosine_distance_threshold_for_existing_column_mapping,
-        semantic_types
-        ) -> tuple[pd.DataFrame, dict]:
-    """
-    Calls LLM to generate suggestions, filters/augments where needed,
-    enriches with semantic scores; returns (suggestions_df, augmentation_cache)
-    """
-    column_names = list(input_table.columns)
-
-    input_table_semantic_types = semantic_type_extractor.infer_semantic_types_for_df(df=input_table)
-
-    joinable_tables = table_description_builder.table_filter_using_minhash(
-        input_table_minhash=input_table_minhash,
-        table_minhashes=all_minhashes,
-        minhash_jaccard_threshold= 1 - min_joinability_distance_threshold
-    )
-
-    joinable_table_descriptions = {table: table_descriptions[table] for table in joinable_tables if table in table_descriptions}
-
-    table_description_segments = split_dict(joinable_table_descriptions, 20)
-
-    all_suggestions = {}
-    print_rule("Calling LLM for suggestions")
-    for segment in tqdm(table_description_segments):
-        prompt = prompts.build_suggestion_prompt(input_table, column_names, other_table_descriptions=segment)
-
-        gpt_response = call_gpt(prompt)
-        table_description_segment_suggestions = parse_suggestion(gpt_response)
-        for base_col, suggestions in table_description_segment_suggestions.items():
-            if base_col not in all_suggestions:
-                all_suggestions[base_col] = []
-            all_suggestions[base_col].extend(suggestions)
-
-    # Dump all suggestions as .json with indent=4 in file
-    with open("all_suggestions.json", "w", encoding="utf-8") as f:
-        json.dump(all_suggestions, f, indent=4, ensure_ascii=False)
-    print("✅ Dumped all suggestions to all_suggestions.json")
-
-    SIMILARITY_THRESHOLD = 0.92  # adjust as needed
-
-    for base_col, suggestions in all_suggestions.items():
-        unique_suggestions = []
-        seen = []
-        for s in suggestions:
-            sort_attr = s["column"]
-            is_similar = False
-            for seen_attr in seen:
-                similarity = SequenceMatcher(None, sort_attr.lower(), seen_attr.lower()).ratio()
-                if similarity >= SIMILARITY_THRESHOLD:
-                    is_similar = True
-                    break
-            if not is_similar:
-                unique_suggestions.append(s)
-                seen.append(sort_attr)
-        all_suggestions[base_col] = unique_suggestions
-
-    # Load indexes once
-    semantic_types, semantic_type_hnsw_index, all_minhashes, all_table_descriptions = load_indexes(index_dir)
-
-    augmentation_cache = {}
-    rows = []
-
-    # suggestions: { base_col: [ {column, description, interestingness, "column present in the table": "Yes"/"No"} ] }
-    print_rule("Evaluating suggestions against the data lake")
-    input_table_semantic_type_embeddings = semantic_type_extractor.build_semantic_type_embeddings(input_table)
-    print("discover_augmentable_column")
-    for base_col, sort_list in all_suggestions.items():
-        for s in sort_list:
-            # print(f"Evaluating suggestion for base column '{base_col}'")
-            # print(f"  Sort Attribute: {sort_attr}")
-            col_present = (s["column present in the table"] == "Yes")
-            sort_attr = s["column"]
-            if not col_present:
-                aug = discover_augmentable_column(
-                    suggested_attribute=sort_attr,
-                    input_table=input_table,                                  # input table
-                    input_table_minhash=input_table_minhash,
-                    input_table_semantic_type_embeddings=input_table_semantic_type_embeddings,
-                    datalake=data_lake,
-                    semantic_types=semantic_types,
-                    minhashes=all_minhashes,
-                    semantic_type_hnsw_index=semantic_type_hnsw_index,
-                    base_col=base_col,
-                    top_k=5,
-                    min_joinability_distance_threshold=min_joinability_distance_threshold,
-                    semantic_distance_threshold_for_datalake_column_mapping=semantic_distance_threshold_for_datalake_column_mapping,
-                    cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping
-                )
-                if aug is None:
-                    # skip suggestions that can't be satisfied
-                    continue
-                augmentation_cache[(base_col, sort_attr)] = aug
-
-            rows.append({
-                "Base Column":     base_col,
-                "Sort Attribute": s["column"],
-                "Sort Attribute Name":  s["name"],
-                "Description":     s["description"],
-                "Interestingness": s["interestingness"],
-                "Column present":  "Yes" if col_present else "No",
-                "Matched Column": sort_attr if col_present else aug['matched_column'],
-                "Matched Table":   "input_table" if col_present else aug['matched_table'],
-            })
-
-
-    if len(rows) == 0:
-        raise RuntimeError("No viable suggestions after augmentation checks.")
-
-    suggestions_df = pd.DataFrame(rows)
-
-    # Sort suggestions_df by Interestingness in descending order
-    suggestions_df = suggestions_df.sort_values(by="Interestingness", ascending=False).drop_duplicates(subset=["Matched Table", "Matched Column"]).reset_index(drop=True)
-
-    input_cols = list(suggestions_df.columns)
-    print("update_suggestions_with_semantic_scores")
-    # suggestions_df = update_suggestions_with_semantic_scores(suggestions_df, input_cols)
-    suggestions_df = update_suggestions_with_interestingness_score(
-        suggestions_df=suggestions_df, input_df=input_table, input_df_semantic_types=input_table_semantic_types, all_semantic_types=semantic_types, data_lake=data_lake)
-    suggestions_df.index = suggestions_df.index + 1  # 1-based display
-    return suggestions_df, augmentation_cache
-
-def update_suggestions_with_interestingness_score(suggestions_df: pd.DataFrame, input_df, input_df_semantic_types, all_semantic_types, data_lake) -> pd.DataFrame:
-    """
-    Re-score each suggestion's Interestingness using GPT, incorporating semantic-type context
-    for input columns and (if applicable) matched data lake columns.
-
-    Parameters
-    ----------
-    suggestions_df : pd.DataFrame
-        Must contain columns: ["Base Column", "Sort Attribute", "Description", "Column present",
-        "Matched Table", "Matched Column", "Interestingness"].
-    input_df : pd.DataFrame
-        The original input table.
-    input_df_semantic_types : dict[str, str]
-        Mapping of input_df column names to their semantic type strings.
-    all_semantic_types : dict[str, dict[str, str]]
-        Mapping of datalake table -> column -> semantic type.
-
-    Returns
-    -------
-    pd.DataFrame
-        The same dataframe with the "Interestingness" column replaced by GPT-assigned scores (floats).
-    """
-
-    input_columns_string = ""
-    for idx, col in enumerate(input_df.columns):
-        input_columns_string += f"Column name: {col}, description: {input_df_semantic_types[col]}\n"
-
-    suggestions_string = ""
-    for idx, row in suggestions_df.iterrows():
-        base_col = row["Base Column"]
-        sort_attr = row["Sort Attribute"]
-        sort_attr_name = row["Sort Attribute Name"]
-        matched_table = row["Matched Table"]
-        matched_col = row["Matched Column"]
-        col_present = row["Column present"]
-
-        if matched_table == "input_table":
-            examples = input_df[matched_col].dropna().unique()[:5]  # Get up to 5 examples
-        else:
-            examples = data_lake[matched_table][matched_col].dropna().unique()[:5]  # Get up to 5 examples
-
-        if matched_table == "input_table":
-            # If matched table is input_table, use its semantic type directly
-            matched_sem_type = input_df_semantic_types[matched_col]
-        else:
-            matched_sem_type = all_semantic_types[str(matched_table)][str(matched_col)]
-
-        suggestions_string += f"""
-Suggestion ID: {idx + 1}
-Suggestion By Human: {sort_attr_name}
-Column present in input table: {col_present}
-Best Match Column from the data lake: {matched_sem_type}
-Best Match Value Examples: {examples}
-"""
-
-    prompt = f"""
-You are a careful data assistant. A user has upload a table and the names of the columns are as below:
-
-{input_columns_string}
-
-You are also given a list of columns that are suggested by a human expert for sorting. These suggestions may or may not be in the input table. These suggestions are interesting ways to sort the input table.
-Each suggestion has a best match column from a data lake, which is the closest match to the suggested column name. The best match column is either in the input table or in a seperate data lake table.
-Ultimately, the best match column will be used to sort the input table after a join with the data lake table.
-
-{suggestions_string}
-
-Your task is to assign an interestingness score in [0,1] to each suggestion based on the following criteria:
-- How semantically interesting it would be to sort using that attribute for this specific input table.
-- Whether the matched data lake column closely matches the human given suggestion; better alignment => higher interestingness; poor alignment => lower interestingness.
-- If the example values are categorical, it should be scored very low. Numeric values are more interesting for sorting.
-- If the suggestion already matches a column in the input table but the suggestion is not present in the input table, it should be scored lower.
-- The interestingness score across all suggestions should be normalized to [0, 1] range.
-- For every suggestion, return an object with fields: "Suggestion Id", "Suggestion By Human", "Interestingness", "Reason of Score".
-- Do not explain; output only a JSON array of objects.
-
-
-Output format (strict JSON array):
-[
-  {{ "Suggestion Id": <string>, "Suggestion By Human": <string>, "Interestingness": <float>, "Reason of Score": <string> }},
-]
-"""
-    
-    print(prompt)
-    print_df(suggestions_df.drop(columns=['Description']), max_rows=100)
-
-    # Call GPT and parse JSON
-    gpt_raw = call_gpt(prompt)
-    
-    payload = extract_json_object(gpt_raw)
-
-    pprint.pprint(payload)
-
-    # Map scores by id
-    id_to_score = {}
-    for obj in payload:
-        rid = obj["Suggestion Id"]
-        score = float(obj["Interestingness"])
-        id_to_score[rid] = score
-
-    pprint.pprint(id_to_score)
-
-    for idx, row in suggestions_df.iterrows():
-        suggestions_df.at[idx, "Interestingness"] = id_to_score[str(idx+1)]  # 1-based index in GPT response
-
-    suggestions_df = suggestions_df.sort_values(by="Interestingness", ascending=False).reset_index(drop=True)
-
-    return suggestions_df
-
-
-def show_suggestions_and_pick(df_input: pd.DataFrame, suggestions_df: pd.DataFrame) -> tuple[int, pd.Series, float]:
-    print_rule("🔍 Sorting Suggestions (sorted by Interestingness desc)")
-    sorted_df = suggestions_df.sort_values(["Interestingness"], ascending=[False]).copy()
-    # print rows of sorted_df as dictionaries
-    print("\nSuggestions (as dictionaries):")
-    for idx, row in sorted_df.iterrows():
-        print(f"Suggestion {idx}: ")
-        pprint.pprint(row.to_dict())
-
-
-    # compute semantic utility overall
-    input_columns = list(df_input.columns)
-    candidate_columns = list(suggestions_df["Sort Attribute"])
-    semantic_util = compute_semantic_interestingness(input_columns, candidate_columns)
-    print(f"\nSemantic Utility score (0..1): {semantic_util:.4f}")
-
-    # Let user select by display index (row number in sorted_df)
-    # Build display options mapping back to original index
-    # Prepare options as (original_idx, display_text) tuples
-    options = []
-    for idx, row in sorted_df.iterrows():
-        display_text = f"{row['Base Column']:<20} | {row['Sort Attribute']:<30} | {row['Interestingness']:<30}| {row['Matched Table']:<20} | {row['Matched Column']:<20}"
-        options.append((idx, display_text))
-
-    # Print header
-    print("\nChoose a suggestion:")
-    print(f"{'No.':<4} | {'Base Column':<20} | {'Sort Attribute':<30} | {'Interestingness':<30} | {'Matched Table':<20} | {'Matched Column':<20}")
-    print("-" * 140)
-
-    # Print rows
-    for i, (_, text) in enumerate(options, 1):
-        print(f"{i:<4} | {text}")
-
-    # Input loop
-    while True:
-        raw = input("Enter choice number: ").strip()
-        if raw.isdigit() and 1 <= int(raw) <= len(options):
-            choice_num = int(raw)
-            original_idx, _ = options[choice_num - 1]
-            chosen_row = suggestions_df.loc[original_idx]
-            return original_idx, chosen_row, semantic_util
-        print("Invalid choice. Try again.")
-
-
-def generate_sort_sql_and_run(con, df_input: pd.DataFrame, selected_row: pd.Series) -> pd.DataFrame:
-    base_col     = selected_row["Base Column"]
-    sort_attr    = selected_row["Sort Attribute"]
-    description  = selected_row["Description"]
-    input_cols   = list(df_input.columns)
-
-    sql_prompt = prompts.generate_single_table_sql_prompt(
-        input_cols=input_cols,
-        required_col=sort_attr,
-        description=description,
-        base_col=base_col
-    )
-
-    print_rule("Calling LLM for sort SQL")
-    sql = call_gpt(sql_prompt).strip()
-    if not sql:
-        raise RuntimeError("LLM returned empty SQL.")
-    print_rule("🧾 Generated SQL")
-    print(sql, "\n")
-
-    result_df = con.execute(sql).df()
-    return result_df
-
-def generate_augmented_sql_and_run(con,
-                                   df_input: pd.DataFrame,
-                                   data_lake: dict[str, pd.DataFrame],
-                                   augment_data: dict,
-                                   cached: bool = False) -> tuple[str, pd.DataFrame]:
-    """
-    Build and run augmented SQL joining input_table with a datalake table based on augment_data.
-    Caching is delegated to with_augmented_sql_cache().
-    """
-
-    cache_result = read_augmented_sql_cache(augment_data=augment_data, cached=cached)
-
-    if cache_result is not None:
-        sql, out_df = cache_result
-        print_rule("Using cached augmented SQL")
-        return sql, out_df
-
-    datalake_table_name = augment_data["datalake_table"]
-    input_table_key     = augment_data["join_key_input"]
-    datalake_table_key  = augment_data["join_key_datalake"]
-    sort_by_column      = augment_data["datalake_column"]
-
-    typed_df, _inferred = infer_type.infer_and_cast_df(
-        data_lake[datalake_table_name], percent_scale=True
-    )
-
-    sql = sql_gen.build_augmented_sql(
-        datalake_table_name=datalake_table_name,
-        join_key_input=input_table_key,
-        join_key_datalake=datalake_table_key,
-        sort_cols=[sort_by_column],
-        input_dataframe=df_input,
-        datalake_dataframe=typed_df,
-    )
-
-    print_rule("🧾 Generated Augmented SQL")
-    print(sql, "\n")
-
-    # Register the datalake table in DuckDB under its table name
-    con.register(datalake_table_name, typed_df)
-
-    out_df = con.execute(sql).df()
-
-    save_augmented_sql_cache(
-        augment_data=augment_data,
-        sql=sql,
-        df=out_df,
-        cached=cached
-        )
-
-    return sql, out_df
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Main
-# ──────────────────────────────────────────────────────────────────────────────
-
 def main():
-
-    semantic_distance_threshold_for_datalake_column_mapping = 0.9
     cosine_distance_threshold_for_existing_column_mapping = 0.2
     suggestion_deduplication_semantic_type_distance_threshold = 0.3
+    min_joinability_distance_threshold = 0.99
 
     parser = argparse.ArgumentParser(
         description="InsightSort (CLI) — discover interesting sort attributes and optionally augment data from a data-lake."
@@ -762,44 +48,39 @@ def main():
     print("Welcome to InsightSort CLI! This tool helps you discover interesting sort attributes and augment data from a data-lake.")
     datalakes_root = Path(args.datalakes_root)
     if not datalakes_root.exists():
-        eprint(f"❌ Datalakes root not found: {datalakes_root}")
+        helpers.eprint(f"❌ Datalakes root not found: {datalakes_root}")
         sys.exit(1)
 
     # Pick data-lake
-    print_rule("Available data-lakes:")
-    available = list_dir_names(datalakes_root)
+    helpers.print_rule("Available data-lakes:")
+    available = helpers.list_dir_names(datalakes_root)
     if not available:
-        eprint(f"❌ No data-lakes found under {datalakes_root}")
+        helpers.eprint(f"❌ No data-lakes found under {datalakes_root}")
         sys.exit(1)
 
     if args.lake and args.lake in available:
         lake_name = args.lake
     else:
         if args.lake and args.lake not in available:
-            eprint(f"⚠️ Requested lake '{args.lake}' not found; choose interactively.")
-        lake_name = choose_from_list("Select a data-lake:", available)
+            helpers.eprint(f"⚠️ Requested lake '{args.lake}' not found; choose interactively.")
+        lake_name = helpers.choose_from_list("Select a data-lake:", available)
 
     lake_dir   = datalakes_root / lake_name
     index_dir  = lake_dir / "index_files"
 
-    print_rule(f"Loading data-lake '{lake_name}'")
-    data_lake = load_datalake_tables(lake_dir)
+    helpers.print_rule(f"Loading data-lake '{lake_name}'")
+    data_lake = pandas_helper.load_datalake_tables(lake_dir)
     print(f"Loaded {len(data_lake)} tables from {lake_dir/'all_tables'}.")
 
-    print_rule("Ensuring indexes")
-    ensure_indexes(data_lake, index_dir)
+    helpers.print_rule("Ensuring indexes")
+    index_builder.ensure_indexes(data_lake, index_dir)
     print("✅ Indexes present.")
 
-    # Connect DuckDB; register 'input_table' later
     con = duckdb.connect()
 
     # Select & load input table
 
     input_name, df_input, input_path = select_input_table(lake_dir, prefer=args.input_table)
-
-    # print_rule(f"Input table: {input_name}")
-    # print_df(df_input)
-
     # Register the input table in DuckDB
     con.unregister("input_table") if "input_table" in con.execute("SHOW TABLES").df().values else None
     con.register("input_table", df_input)
@@ -813,7 +94,7 @@ def main():
 
     semantic_type_embeddings = semantic_type_extractor.load_semantic_type_embeddings(index_dir)
 
-    suggestions_df, augmentation_cache = generate_numeric_column_suggestions(
+    suggestions_df, augmentation_cache = suggestion_engine.generate_numeric_column_suggestions(
         input_table=df_input,
         input_table_minhash=input_table_minhash,
         all_minhashes=all_minhashes,
@@ -822,12 +103,12 @@ def main():
         cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping,
         suggestion_deduplication_semantic_type_distance_threshold=suggestion_deduplication_semantic_type_distance_threshold,
         semantic_types=all_semantic_types,
-        semantic_type_embeddings=semantic_type_embeddings
+        semantic_type_embeddings=semantic_type_embeddings,
+        min_joinability_distance_threshold=min_joinability_distance_threshold,
         )
 
     # Write augmentations and metadata to txt files before showing suggestions
-    # Save under a lake-specific folder: augmentations_txt_{datalake name}
-    augment_dir = Path.cwd() / f"augmentations_txt_{lake_name}"
+    augment_dir = Path.cwd() / "results" / f"augmentations_txt_{lake_name}"
     # Clear the augment_dir if it exists
     if augment_dir.exists() and augment_dir.is_dir():
         for f in augment_dir.iterdir():
@@ -859,7 +140,7 @@ def main():
 
         filename = augment_dir / f"{order_num}_augmentation_{base_col}__{datalake_column}.txt"
 
-        _, out_df = generate_augmented_sql_and_run(con, df_input, data_lake, aug, cached=False)
+        _, out_df = suggestion_engine.generate_augmented_sql_and_run(con, df_input, data_lake, aug, cached=False)
 
         with open(filename, "w", encoding="utf-8") as f:
             f.write(f"Base Column:                      {base_col}\n")

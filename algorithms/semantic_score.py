@@ -1,8 +1,8 @@
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from algorithms.prompts import compute_semantic_utility_prompt
-from algorithms.llm_utils import call_gpt
-from algorithms.embedding_utils import embed_text
+from llm_utils import call_gpt
+from embedding_utils import embed_text
 from tqdm import tqdm
 
 def compute_column_uniqueness(input_columns: list[str], candidate_columns: list[str]) -> float:

@@ -1,4 +1,7 @@
 import pandas as pd
+import pprint
+import helpers
+import llm_utils
 
 def build_suggestion_prompt(input_table, column_names, other_table_descriptions):
     # Get the most frequent 5 values for each column in input_table
@@ -100,104 +103,6 @@ Score from 0 to 1:
 
 Return only a decimal number between 0 and 1, without explanation.
 """
-
-
-
-# def generate_augmented_sql_prompt(input_cols, datalake_table_name, join_key_input, join_key_datalake, sort_col):
-#     return f"""
-# You are given:
-# - An input table named `input_table` with the following columns: {input_cols}
-# - A data lake table named `{datalake_table_name}`
-
-# Your task is to:
-# 1. Perform an inner join between `input_table` and `{datalake_table_name}` using:
-#    - `input_table.{join_key_input}` = `{datalake_table_name}.{join_key_datalake}`
-# 2. Return all columns from `input_table`, and the column `{sort_col}` from `{datalake_table_name}`
-# 3. Sort the final result in descending order based on `{datalake_table_name}.{sort_col}`
-# 4. Ensure all column references in the SELECT, JOIN, and ORDER BY clauses are fully qualified using table names
-# 5. Wrap column names that contain spaces or special characters in double quotes, e.g., "cost of living index"
-
-# Output only the SQL query — no explanations, no markdown, and no extra formatting.
-# """    
-
-# def generate_augmented_sql_prompt(input_cols, datalake_table_name, join_key_input, join_key_datalake, sort_cols):
-#     """
-#     sort_cols can be a single column name (str) or a list/tuple of column names.
-#     """
-#     if isinstance(sort_cols, (list, tuple)):
-#         sort_cols_text = ", ".join(sort_cols)
-#     else:
-#         sort_cols_text = str(sort_cols)
-
-#     return f"""
-# You are given:
-# - An input table named `input_table` with the following columns: {input_cols}
-# - A data lake table named `{datalake_table_name}`
-
-# Your task is to:
-# 1. Perform an INNER JOIN between `input_table` and `{datalake_table_name}` using:
-#    - `input_table.{join_key_input}` = `{datalake_table_name}.{join_key_datalake}`
-# 2. Return ONLY the following columns:
-#    - `input_table.{join_key_input}`
-#    - `{datalake_table_name}.{join_key_datalake}`
-#    - `{datalake_table_name}.{sort_cols_text}`  (if multiple, include all of them)
-# 3. Discard duplicate rows by using SELECT DISTINCT over the projected columns.
-# 4. Sort the final result in descending order by `{datalake_table_name}.{sort_cols_text}`.
-#    - If multiple sort attributes are provided, sort by them in the given order, all DESC.
-# 5. Ensure all column references in SELECT, JOIN, and ORDER BY clauses are fully qualified with table names.
-# 6. Wrap column names that contain spaces or special characters in double quotes, e.g., "cost of living index".
-
-# Output only the SQL query — no explanations, no markdown, no extra formatting and no ```sql annotation.
-# """
-
-# def generate_augmented_sql_prompt(input_cols, datalake_table_name, join_key_input, join_key_datalake, sort_cols):
-#     """
-#     sort_cols can be a single column name (str) or a list/tuple of column names.
-#     """
-#     if isinstance(sort_cols, (list, tuple)):
-#         sort_cols_text = ", ".join(sort_cols)
-#     else:
-#         sort_cols_text = str(sort_cols)
-
-#     return f"""
-# You are given:
-# - An input table named `input_table` with the following columns: {input_cols}
-# - A data lake table named `{datalake_table_name}`
-
-# Your task is to:
-# 1. Perform an INNER JOIN between `input_table` and `{datalake_table_name}` using:
-#    - `input_table.{join_key_input}` = `{datalake_table_name}.{join_key_datalake}`
-# 2. Return ONLY the following columns:
-#    - `input_table.{join_key_input}`
-#    - `{datalake_table_name}.{sort_cols_text}`  (if multiple, include all of them)
-# 3. Discard duplicate rows by using SELECT DISTINCT over the projected columns.
-# 4. Sort the final result in descending order by `{datalake_table_name}.{sort_cols_text}`.
-#    - If multiple sort attributes are provided, sort by them in the given order, all DESC.
-# 5. Ensure all column references in SELECT, JOIN, and ORDER BY clauses are fully qualified with table names.
-# 6. Wrap column names that contain spaces or special characters in double quotes, e.g., "cost of living index".
-
-# Output only the SQL query — no explanations, no markdown, no extra formatting and no ```sql annotation.
-# """
-
-
-
-# def generate_single_table_sql_prompt(input_cols, required_col, description, base_col):
-#     return f"""
-#     Given a table with the following columns: {input_cols}
-#     Write an SQL query that sorts this table by {required_col} in descending order, assuming that column exists in the table and is aligned with {base_col}.
-
-#     Here is what's exactly needed:
-#     - The SQL query should sort the **entire table** according to this: {description}
-#     - You may need to use GROUP BY, ORDER BY, OVER(), or any SQL techniques as needed.
-#     - Ensure the final output includes **all original table columns plus any derived column** used in ORDER BY.
-#     - Do not return a partial subset of the table — return a **fully sorted version of the input table with the sorting column visible.**
-#     - If any column name contains spaces or special characters, wrap it in **double quotes** (e.g., "gdp (in trillions USD)").
-#     - Table name is 'input_table'
-
-#     Return only the SQL query — no explanations or markdown formatting. Also don't include it in backticks.
-#     """.strip()
-
-# import pandas as pd
 
 def generate_semantic_type_prompt(df: pd.DataFrame, top_k: int = 20) -> str:
     """
@@ -306,3 +211,111 @@ Requirements:
 - "description" must be a single line (no newlines), <= 200 characters if possible.
 - Do NOT invent columns that are not present; use the provided context.
 """
+
+def update_suggestions_with_interestingness_score(suggestions_df: pd.DataFrame, input_df, input_df_semantic_types, all_semantic_types, data_lake) -> pd.DataFrame:
+    """
+    Re-score each suggestion's Interestingness using GPT, incorporating semantic-type context
+    for input columns and (if applicable) matched data lake columns.
+
+    Parameters
+    ----------
+    suggestions_df : pd.DataFrame
+        Must contain columns: ["Base Column", "Sort Attribute", "Description", "Column present",
+        "Matched Table", "Matched Column", "Interestingness"].
+    input_df : pd.DataFrame
+        The original input table.
+    input_df_semantic_types : dict[str, str]
+        Mapping of input_df column names to their semantic type strings.
+    all_semantic_types : dict[str, dict[str, str]]
+        Mapping of datalake table -> column -> semantic type.
+
+    Returns
+    -------
+    pd.DataFrame
+        The same dataframe with the "Interestingness" column replaced by GPT-assigned scores (floats).
+    """
+
+    input_columns_string = ""
+    for idx, col in enumerate(input_df.columns):
+        input_columns_string += f"Column name: {col}, description: {input_df_semantic_types[col]}\n"
+
+    suggestions_string = ""
+    for idx, row in suggestions_df.iterrows():
+        base_col = row["Base Column"]
+        sort_attr = row["Sort Attribute"]
+        sort_attr_name = row["Sort Attribute Name"]
+        matched_table = row["Matched Table"]
+        matched_col = row["Matched Column"]
+        col_present = row["Column present"]
+
+        if matched_table == "input_table":
+            examples = input_df[matched_col].dropna().unique()[:5]  # Get up to 5 examples
+        else:
+            examples = data_lake[matched_table][matched_col].dropna().unique()[:5]  # Get up to 5 examples
+
+        if matched_table == "input_table":
+            # If matched table is input_table, use its semantic type directly
+            matched_sem_type = input_df_semantic_types[matched_col]
+        else:
+            matched_sem_type = all_semantic_types[str(matched_table)][str(matched_col)]
+
+        suggestions_string += f"""
+Suggestion ID: {idx + 1}
+Suggestion By Human: {sort_attr_name}
+Column present in input table: {col_present}
+Best Match Column from the data lake: {matched_sem_type}
+Best Match Value Examples: {examples}
+"""
+
+    prompt = f"""
+You are a careful data assistant. A user has upload a table and the names of the columns are as below:
+
+{input_columns_string}
+
+You are also given a list of columns that are suggested by a human expert for sorting. These suggestions may or may not be in the input table. These suggestions are interesting ways to sort the input table.
+Each suggestion has a best match column from a data lake, which is the closest match to the suggested column name. The best match column is either in the input table or in a seperate data lake table.
+Ultimately, the best match column will be used to sort the input table after a join with the data lake table.
+
+{suggestions_string}
+
+Your task is to assign an interestingness score in [0,1] to each suggestion based on the following criteria:
+- How semantically interesting it would be to sort using that attribute for this specific input table.
+- Whether the matched data lake column closely matches the human given suggestion; better alignment => higher interestingness; poor alignment => lower interestingness.
+- If the example values are categorical, it should be scored very low. Numeric values are more interesting for sorting.
+- If the suggestion already matches a column in the input table but the suggestion is not present in the input table, it should be scored lower.
+- The interestingness score across all suggestions should be normalized to [0, 1] range.
+- For every suggestion, return an object with fields: "Suggestion Id", "Suggestion By Human", "Interestingness", "Reason of Score".
+- Do not explain; output only a JSON array of objects.
+
+
+Output format (strict JSON array):
+[
+  {{ "Suggestion Id": <string>, "Suggestion By Human": <string>, "Interestingness": <float>, "Reason of Score": <string> }},
+]
+"""
+    
+    print(prompt)
+    helpers.print_df(suggestions_df.drop(columns=['Description']), max_rows=100)
+
+    # Call GPT and parse JSON
+    gpt_raw = llm_utils.call_gpt(prompt)
+    
+    payload = helpers.extract_json_object(gpt_raw)
+
+    pprint.pprint(payload)
+
+    # Map scores by id
+    id_to_score = {}
+    for obj in payload:
+        rid = obj["Suggestion Id"]
+        score = float(obj["Interestingness"])
+        id_to_score[rid] = score
+
+    pprint.pprint(id_to_score)
+
+    for idx, row in suggestions_df.iterrows():
+        suggestions_df.at[idx, "Interestingness"] = id_to_score[str(idx+1)]  # 1-based index in GPT response
+
+    suggestions_df = suggestions_df.sort_values(by="Interestingness", ascending=False).reset_index(drop=True)
+
+    return suggestions_df

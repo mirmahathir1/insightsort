@@ -2,7 +2,9 @@ import difflib
 from typing import Dict
 import pandas as pd
 import os
-from algorithms import embedding_utils, prompts, llm_utils
+from algorithms import prompts
+import llm_utils
+import embedding_utils
 import json
 from tqdm import tqdm
 

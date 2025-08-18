@@ -3,13 +3,14 @@ import os
 import numpy as np
 import pickle
 import pandas as pd
-from algorithms.embedding_utils import embed_column_values, embed_column_semantic_type, embed_text
+from embedding_utils import embed_column_values, embed_column_semantic_type, embed_text
 from algorithms import prompts
-from algorithms import llm_utils
+import llm_utils
 from algorithms import table_description_builder
 from algorithms import minhash_builder
 from algorithms import semantic_type_extractor
 import json
+from pathlib import Path
 
 class HNSWIndex:
     def __init__(self, dim, space="cosine"):
@@ -182,4 +183,7 @@ def build_indexes_from_datalake(datalake: dict[str, pd.DataFrame], save_dir: str
         semantic_type_embeddings = semantic_type_extractor.build_semantic_type_embeddings_for_datalake(semantic_types)
         semantic_type_extractor.save_semantic_type_embeddings(semantic_type_embeddings, save_dir, verbose=verbose)
 
+def ensure_indexes(data_lake: dict[str, pd.DataFrame], index_dir: Path):
+    index_dir.mkdir(parents=True, exist_ok=True)
+    build_indexes_from_datalake(data_lake, save_dir=index_dir)
 

@@ -26,6 +26,7 @@ global_source = ""
 
 semantic_distance_threshold_for_datalake_column_mapping = 0.4
 cosine_distance_threshold_for_existing_column_mapping = 0.2
+min_joinability_distance_threshold = 0.99
 
 suggestion_deduplication_semantic_type_distance_threshold_dict = {
     "country_datalake": 0.1,
@@ -314,20 +315,19 @@ if st.session_state.uploaded_table is not None:
 if st.session_state.uploaded_table is not None and not st.session_state.sorting_suggestions:
     input_df = st.session_state.uploaded_table
 
-    input_df_minhash = minhash_builder.build_minhashes(datalake={"input_table": input_df}, parallel_enabled=False)['input_table']
-
     if st.button("Get Suggestions 💡"):
         with st.spinner(f"Generating Suggestions …"):
             suggestions_df, augmentation_cache = cli_only.generate_numeric_column_suggestions(
                 input_table=input_df,
-                input_table_minhash=input_df_minhash,
+                input_table_minhash=st.session_state.uploaded_table_minhashes,
                 all_minhashes=st.session_state.all_minhashes,
                 data_lake=st.session_state.data_lake,
                 table_descriptions=st.session_state.all_table_descriptions,
                 cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping,
                 suggestion_deduplication_semantic_type_distance_threshold=suggestion_deduplication_semantic_type_distance_threshold_dict[st.session_state.chosen_lake],
                 semantic_types=st.session_state.semantic_types,
-                semantic_type_embeddings=st.session_state.semantic_type_embeddings
+                semantic_type_embeddings=st.session_state.semantic_type_embeddings,
+                min_joinability_distance_threshold=min_joinability_distance_threshold
             )
             st.session_state.suggestions_df = suggestions_df
             st.session_state.augmentation_cache = augmentation_cache
@@ -612,7 +612,7 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
             semantic_types= st.session_state.semantic_types,
             minhashes= st.session_state.all_minhashes,
             base_col= base_col,
-            min_joinability_distance_threshold= 0.99,
+            min_joinability_distance_threshold= min_joinability_distance_threshold,
             cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping
         )
 
