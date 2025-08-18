@@ -165,8 +165,10 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
+from data_path import data_path
+
 # ───────────────────── Data‑lake picker ───────────────────────────────────────
-DATALAKES_ROOT = "datalakes"  # ./datalakes/datalake1/, datalake2/, …
+DATALAKES_ROOT = f"{data_path()}/datalakes"  # ./datalakes/datalake1/, datalake2/, …
 
 st.sidebar.header("🏞️  Data‑lake")
 

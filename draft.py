@@ -19,7 +19,7 @@ parser.add_argument("--export", help="Path to save the final output CSV (optiona
 parser.add_argument("--print-json", action="store_true", help="Print the chosen suggestion record as JSON before running SQL.")
 args = parser.parse_args()
 
-datalakes_root = Path(args.datalakes_root)
+datalakes_root = Path("data" / args.datalakes_root)
 if not datalakes_root.exists():
 	cli_only.eprint(f"❌ Datalakes root not found: {datalakes_root}")
 	sys.exit(1)

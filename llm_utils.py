@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 import openai                         # make sure openai‑python is installed
 import re
+from data_path import data_path
 
 # openai.api_key = 'sk-proj-zvfr2IvWfqEUqsnmwIBJT3BlbkFJMxh6YiSgfcG6vEcMGJ35'  # ← ideally load from env
 openai.api_key = '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'
@@ -13,7 +14,7 @@ def _cache_path(prompt: str, model) -> Path:
     Deterministically map a prompt to a cache‑file path.
     Using SHA‑256 avoids problems with very long or filesystem‑unsafe filenames.
     """
-    CACHE_DIR = Path(f"results/llmcache_{model}")
+    CACHE_DIR = data_path() / Path(f"llmcache_{model}")
     CACHE_DIR.mkdir(exist_ok=True)        # create if it doesn’t exist
     digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     return CACHE_DIR / f"{digest}.json"

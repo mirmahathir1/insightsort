@@ -30,6 +30,8 @@ def select_input_table(lake_dir: Path, prefer: str | None = None) -> tuple[str, 
     df = pandas_helper.read_csv_safely(chosen_file)
     return chosen_name, df, chosen_file
 
+from data_path import data_path
+
 def main():
     cosine_distance_threshold_for_existing_column_mapping = 0.2
     suggestion_deduplication_semantic_type_distance_threshold = 0.3
@@ -46,7 +48,7 @@ def main():
     args = parser.parse_args()
 
     print("Welcome to InsightSort CLI! This tool helps you discover interesting sort attributes and augment data from a data-lake.")
-    datalakes_root = Path(args.datalakes_root)
+    datalakes_root = data_path() / Path(args.datalakes_root)
     if not datalakes_root.exists():
         helpers.eprint(f"❌ Datalakes root not found: {datalakes_root}")
         sys.exit(1)
@@ -108,7 +110,7 @@ def main():
         )
 
     # Write augmentations and metadata to txt files before showing suggestions
-    augment_dir = Path.cwd() / "results" / f"augmentations_txt_{lake_name}"
+    augment_dir = data_path() / f"augmentations_txt_{lake_name}"
     # Clear the augment_dir if it exists
     if augment_dir.exists() and augment_dir.is_dir():
         for f in augment_dir.iterdir():

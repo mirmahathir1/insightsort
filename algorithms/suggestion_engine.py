@@ -27,6 +27,7 @@ from algorithms import index_builder
 import sql_cache
 from algorithms import sql_gen
 from algorithms import infer_type
+from data_path import data_path
 
 
 _HAS_ALPHA_RE = re.compile(r"[A-Za-z]")
@@ -246,7 +247,7 @@ def generate_numeric_column_suggestions(
                 all_suggestions[base_col] = []
             all_suggestions[base_col].extend(suggestions)
 
-    with open("results/all_suggestions.json", "w", encoding="utf-8") as f:
+    with open(data_path() / "all_suggestions.json", "w", encoding="utf-8") as f:
         json.dump(all_suggestions, f, indent=4, ensure_ascii=False)
     print("✅ Dumped all suggestions to all_suggestions.json")
 
@@ -355,7 +356,7 @@ def generate_suggestions(
             all_suggestions[base_col].extend(suggestions)
 
     # Dump all suggestions as .json with indent=4 in file
-    with open("results/all_suggestions.json", "w", encoding="utf-8") as f:
+    with open(data_path() / "all_suggestions.json", "w", encoding="utf-8") as f:
         json.dump(all_suggestions, f, indent=4, ensure_ascii=False)
     print("✅ Dumped all suggestions to all_suggestions.json")
 

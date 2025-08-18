@@ -1,10 +1,5 @@
-index_files
 .streamlit
 __pycache__
-test_indexes
-llmcache*
-datalakes/mitdwh_datalake
-results
 augmentations_*
 .nfs*
-augmented_sql_cache
+data

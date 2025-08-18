@@ -1,11 +1,8 @@
 {
   "exclude": [
-    "llmcache",
-    "datalakes",
-    "archive",
+    "data",
     ".vscode",
-    "__pycache__",
-    "results"
+    "__pycache__"
   ],
   "typeCheckingMode": "off",
   "extraPaths": [

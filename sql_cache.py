@@ -3,6 +3,7 @@ import json
 import hashlib
 import pickle
 import pandas as pd
+from data_path import data_path
 
 def read_augmented_sql_cache(augment_data: dict, cached: bool):
     """
@@ -13,7 +14,7 @@ def read_augmented_sql_cache(augment_data: dict, cached: bool):
     """
     if not cached:
         return None
-    cache_dir = Path.cwd() / "results/augmented_sql_cache"
+    cache_dir = data_path() / "augmented_sql_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     cache_key_src = json.dumps(augment_data, sort_keys=True, default=str)
@@ -35,7 +36,7 @@ def save_augmented_sql_cache(augment_data: dict, sql: str, df: pd.DataFrame, cac
     Cache location: ./llmcache/augmented_sql_cache/<sha256(augment_data)>.pkl
     Payload format: {"sql": str, "df": pandas.DataFrame}
     """
-    cache_dir = Path.cwd() / "results/augmented_sql_cache"
+    cache_dir = data_path() / "augmented_sql_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     cache_key_src = json.dumps(augment_data, sort_keys=True, default=str)
