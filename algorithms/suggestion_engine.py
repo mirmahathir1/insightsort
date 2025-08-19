@@ -232,7 +232,8 @@ def generate_numeric_column_suggestions(
     all_suggestions = {}
     helpers.print_rule("Calling LLM for suggestions")
     for single_segment_of_joinable_tables in tqdm(joinable_table_segments):
-
+        print("single_segment_of_joinable_tables")
+        print(single_segment_of_joinable_tables)
         table_segment_suggestions = get_interesting_columns_by_table(
             	input_table= input_table,
                 input_table_semantic_types= input_table_semantic_types,

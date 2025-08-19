@@ -4,10 +4,11 @@ import base64
 import streamlit as st
 import pandas as pd
 import duckdb
-import cli_only
 from algorithms.index_builder import build_indexes_from_datalake, load_indexes
 from algorithms.join_discovery import discover_join
+from algorithms import suggestion_engine
 from algorithms import semantic_type_extractor, minhash_builder, table_description_builder
+import pandas_helper
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -33,6 +34,13 @@ suggestion_deduplication_semantic_type_distance_threshold_dict = {
     "employee_datalake": 0,
     "mitdwh_datalake": 0.3
 }
+
+def get_suggestion_deduplication_semantic_type_distance_threshold(datalake_name):
+    if datalake_name in suggestion_deduplication_semantic_type_distance_threshold_dict:
+        return suggestion_deduplication_semantic_type_distance_threshold_dict[datalake_name]
+    else:
+        return 0.1
+
 
 # ───────────────────── Session‑state defaults ────────────────────────────────
 if "data_lake" not in st.session_state:
@@ -214,7 +222,7 @@ if chosen_lake:  # only proceed if the user actually picked one
                 build_indexes_from_datalake(
                     st.session_state.data_lake, save_dir=index_dir
                 )
-                st.session_state.data_lake = cli_only.load_datalake_tables(lake_dir=lake_dir)
+                st.session_state.data_lake = pandas_helper.load_datalake_tables(lake_dir=lake_dir)
                 st.session_state.all_table_descriptions = table_description_builder.load_table_descriptions(save_dir=index_dir)
                 st.session_state.all_minhashes = minhash_builder.load_minhashes(index_dir)
                 st.session_state.semantic_types = semantic_type_extractor.load_semantic_types(index_dir)
@@ -319,14 +327,14 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
 
     if st.button("Get Suggestions 💡"):
         with st.spinner(f"Generating Suggestions …"):
-            suggestions_df, augmentation_cache = cli_only.generate_numeric_column_suggestions(
+            suggestions_df, augmentation_cache = suggestion_engine.generate_numeric_column_suggestions(
                 input_table=input_df,
                 input_table_minhash=st.session_state.uploaded_table_minhashes,
                 all_minhashes=st.session_state.all_minhashes,
                 data_lake=st.session_state.data_lake,
                 table_descriptions=st.session_state.all_table_descriptions,
                 cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping,
-                suggestion_deduplication_semantic_type_distance_threshold=suggestion_deduplication_semantic_type_distance_threshold_dict[st.session_state.chosen_lake],
+                suggestion_deduplication_semantic_type_distance_threshold=get_suggestion_deduplication_semantic_type_distance_threshold(st.session_state.chosen_lake),
                 semantic_types=st.session_state.semantic_types,
                 semantic_type_embeddings=st.session_state.semantic_type_embeddings,
                 min_joinability_distance_threshold=min_joinability_distance_threshold
@@ -622,7 +630,7 @@ if st.session_state.uploaded_table is not None and st.session_state.show_sql_res
 
         if st.session_state.apply_augmentation_clicked:
             if augment_data is not None:
-                sql, augment_result_df = cli_only.generate_augmented_sql_and_run(
+                sql, augment_result_df = suggestion_engine.generate_augmented_sql_and_run(
                     con=con,
                     df_input=st.session_state.uploaded_table,
                     data_lake=st.session_state.data_lake,

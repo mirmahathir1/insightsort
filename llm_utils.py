@@ -6,6 +6,8 @@ import openai                         # make sure openai‑python is installed
 import re
 from data_path import data_path
 
+model_name = "gpt-5"  # default model, can be overridden in call_gpt()
+
 # openai.api_key = 'sk-proj-zvfr2IvWfqEUqsnmwIBJT3BlbkFJMxh6YiSgfcG6vEcMGJ35'  # ← ideally load from env
 openai.api_key = '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'
 
@@ -20,11 +22,11 @@ def _cache_path(prompt: str, model) -> Path:
     return CACHE_DIR / f"{digest}.json"
 
 
-def call_gpt(prompt: str, model: str = "gpt-5", temperature: float = 1) -> str:
+def call_gpt(prompt: str, temperature: float = 1) -> str:
     """
     Return GPT response, using a disk cache keyed by the full prompt text.
     """
-    cache_file = _cache_path(prompt, model=model)
+    cache_file = _cache_path(prompt, model=model_name)
 
     # ─── 1) Return cached value if present ──────────────────────────────────────
     if cache_file.exists():
@@ -35,7 +37,7 @@ def call_gpt(prompt: str, model: str = "gpt-5", temperature: float = 1) -> str:
 
     # ─── 2) Otherwise query the API ─────────────────────────────────────────────
     response = openai.ChatCompletion.create(
-        model=model,
+        model=model_name,
         messages=[{"role": "user", "content": prompt}],
         temperature=temperature,
     )
@@ -67,6 +69,7 @@ def extract_json_object(text: str):
         except json.JSONDecodeError:
             continue  # Try the next match if parsing fails
 
+    return {}
     raise ValueError("No valid JSON object found in the input string.")
 
 

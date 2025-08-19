@@ -107,6 +107,7 @@ def _build_semantic_type_index(
     types_index: dict[str, dict[str, str]] = {}
 
     for table, df in datalake.items():
+        if verbose: print(f"🔎 started {table}")
         prompt       = prompts.generate_semantic_type_prompt(df)
         gpt_response = llm_utils.call_gpt(prompt) or "{}"
         raw          = llm_utils.parse_suggestion(gpt_response)

@@ -2,10 +2,10 @@ import pandas as pd
 import os
 
 # Hardcoded path to the input CSV file
-input_csv_path = 'results/datalakes/mitdwh_datalake/input_tables/Employee_directory.csv'  # TODO: Replace with your actual path
+input_csv_path = 'data/datalakes/datagov_datalake/input_tables/adult.csv'  # TODO: Replace with your actual path
 
 # List of columns to keep (placeholders)
-columns_to_keep = ['Full Name', 'Primary Title', 'Department Name']  # TODO: Replace with your actual column names
+columns_to_keep = ['workclass', 'education', 'marital_status', 'occupation', 'race', 'gender', 'native_country', 'income']  # TODO: Replace with your actual column names
 
 # Read the CSV file
 df = pd.read_csv(input_csv_path)
