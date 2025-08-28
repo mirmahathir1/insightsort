@@ -259,6 +259,9 @@ def generate_numeric_column_suggestions(
     input_table_semantic_type_embeddings = semantic_type_extractor.build_semantic_type_embeddings(input_table)
     print("discover_augmentable_column")
     for base_col, sort_list in all_suggestions.items():
+        if base_col is None:
+            print("WARNING: base_col is None in generate_numeric_column_suggestions")
+            continue
         for s in sort_list:
             aug = join_discovery.discover_join(
                 datalake_table= s["table"],

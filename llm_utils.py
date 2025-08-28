@@ -6,7 +6,9 @@ import openai                         # make sure openai‑python is installed
 import re
 from data_path import data_path
 
-model_name = "gpt-5"  # default model, can be overridden in call_gpt()
+# model_name = "gpt-4o"
+model_name = "gpt-5"
+
 
 # openai.api_key = 'sk-proj-zvfr2IvWfqEUqsnmwIBJT3BlbkFJMxh6YiSgfcG6vEcMGJ35'  # ← ideally load from env
 openai.api_key = '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'

@@ -3,3 +3,4 @@ __pycache__
 augmentations_*
 .nfs*
 data
+env
