@@ -9,6 +9,7 @@ from algorithms.join_discovery import discover_join
 from algorithms import suggestion_engine
 from algorithms import semantic_type_extractor, minhash_builder, table_description_builder
 import pandas_helper
+import pickle
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -327,18 +328,30 @@ if st.session_state.uploaded_table is not None and not st.session_state.sorting_
 
     if st.button("Get Suggestions 💡"):
         with st.spinner(f"Generating Suggestions …"):
-            suggestions_df, augmentation_cache = suggestion_engine.generate_numeric_column_suggestions(
-                input_table=input_df,
-                input_table_minhash=st.session_state.uploaded_table_minhashes,
-                all_minhashes=st.session_state.all_minhashes,
-                data_lake=st.session_state.data_lake,
-                table_descriptions=st.session_state.all_table_descriptions,
-                cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping,
-                suggestion_deduplication_semantic_type_distance_threshold=get_suggestion_deduplication_semantic_type_distance_threshold(st.session_state.chosen_lake),
-                semantic_types=st.session_state.semantic_types,
-                semantic_type_embeddings=st.session_state.semantic_type_embeddings,
-                min_joinability_distance_threshold=min_joinability_distance_threshold
-            )
+            suggestion_df_path = Path(st.session_state.index_dir) / "input_table_suggestions" / f'suggestions_df_{st.session_state.uploaded_table.attrs.get("name")}.pickle'
+            augmentation_cache_path = Path(st.session_state.index_dir) / "input_table_suggestions" / f'augmentation_cache_{st.session_state.uploaded_table.attrs.get("name")}.pickle'
+            # check whether the suggestions_df and augmentation_cache already exist
+            if suggestion_df_path.exists() and augmentation_cache_path.exists():
+                print("Loading suggestions from cache")
+                suggestions_df = pickle.load(open(suggestion_df_path, "rb"))
+                augmentation_cache = pickle.load(open(augmentation_cache_path, "rb"))
+            else:
+                print("Generating new suggestions")
+                suggestions_df, augmentation_cache = suggestion_engine.generate_numeric_column_suggestions(
+                    input_table=input_df,
+                    input_table_minhash=st.session_state.uploaded_table_minhashes,
+                    all_minhashes=st.session_state.all_minhashes,
+                    data_lake=st.session_state.data_lake,
+                    table_descriptions=st.session_state.all_table_descriptions,
+                    cosine_distance_threshold_for_existing_column_mapping=cosine_distance_threshold_for_existing_column_mapping,
+                    suggestion_deduplication_semantic_type_distance_threshold=get_suggestion_deduplication_semantic_type_distance_threshold(st.session_state.chosen_lake),
+                    semantic_types=st.session_state.semantic_types,
+                    semantic_type_embeddings=st.session_state.semantic_type_embeddings,
+                    min_joinability_distance_threshold=min_joinability_distance_threshold
+                )
+                # save the suggestions_df and augmentation_cache for future use
+                pickle.dump(suggestions_df, open(suggestion_df_path, "wb"))
+                pickle.dump(augmentation_cache, open(augmentation_cache_path, "wb"))
             st.session_state.suggestions_df = suggestions_df
             st.session_state.augmentation_cache = augmentation_cache
 
